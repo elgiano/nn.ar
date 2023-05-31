@@ -1,0 +1,26 @@
+class:: NNModel
+summary:: Load torchscripts
+related:: TODO
+categories:: UGens>TODO
+
+description::
+
+Load torchscripts
+
+
+classmethods::
+
+method::ar, kr
+
+argument::TODO
+
+argument::TODO
+
+
+examples::
+
+code::
+
+{ NNModel.ar(/* TODO */) }.play
+
+::
