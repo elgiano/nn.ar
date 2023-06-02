@@ -79,7 +79,7 @@ NNModelMethod {
 
 NN : MultiOutUGen {
 
-	*ar { |key, methodName ...inputs|
+	*ar { |key, methodName, bufferSize, inputs|
 		var model, method, method_idx;
 		model = NNModel(key) ?? { 
 			Error("NN: model % not found".format(key)).throw
@@ -87,11 +87,12 @@ NN : MultiOutUGen {
 		method = model.method(methodName) ?? { 
 			Error("NNModel(%): method % not found".format(key, methodName)).throw
 		};
+		inputs = inputs.asArray;
 		if (inputs.size != method.inDim) {
 			Error("NNModel(%): method % has % inputs, but was given %."
 				.format(key, methodName, method.inDim, inputs.size)).throw
 		};
-		^this.new1('audio', model.idx, method.idx, *inputs)
+		^this.new1('audio', model.idx, method.idx, bufferSize, *inputs)
 			.initOutputs(method.outDim, 'audio');
 	}
 	

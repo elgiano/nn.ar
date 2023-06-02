@@ -171,6 +171,8 @@ template <class in_type, class out_type>
 bool RTCircularBuffer<in_type, out_type>::initialize(World* world, size_t size) {
   _max_size = size;
   _buffer = (out_type*) RTAlloc(world, sizeof(out_type) * size);
+  if (_buffer) 
+    memset(_buffer, 0, sizeof(out_type) * size);
   return _buffer != nullptr;
 }
 
@@ -204,7 +206,7 @@ bool NN::loadModel() {
 }
 
 
-NN::NN(): m_compute_thread(nullptr), m_enabled(false) {
+NN::NN(): m_compute_thread(nullptr), m_enabled(false), m_useThread(true) {
   /* Print("NN: Ctor %d\n"); */
   bool success = loadModel();
   if (!success) {
@@ -230,7 +232,18 @@ void NN::clearOutputs(int nSamples) {
 
 bool NN::allocBuffers() {
 
-  m_bufferSize = m_model->m_higherRatio;
+  m_bufferSize = in0(NNInputs::bufferSize);
+  if (m_bufferSize < 0) {
+    // NO THREAD MODE
+    m_useThread = false;
+    m_bufferSize = m_model->m_higherRatio;
+  } else if (m_bufferSize < m_model->m_higherRatio) {
+    m_bufferSize = m_model->m_higherRatio;
+    Print("NN: buffer size to small, switching to %d.\n", m_bufferSize);
+  } else {
+    m_bufferSize = NEXTPOWEROFTWO(m_bufferSize);
+  }
+
   /* Print("NN: alloc buffers: size %d\n", m_bufferSize); */
 
   m_inBuffer = (RTCircularBuffer<float, float>**) RTAlloc(mWorld, sizeof(RTCircularBuffer<float, float>*) * m_inDim);
@@ -287,6 +300,7 @@ void NN::freeBuffers() {
 NN::~NN() { freeBuffers(); }
 
 void model_perform(NN* nn_instance) {
+  /* Print("NN: performing\n"); */
   std::vector<float*> in_model, out_model;
   for (int c(0); c < nn_instance->m_inDim; c++)
     in_model.push_back(nn_instance->m_inModel[c]);
@@ -373,20 +387,22 @@ void NN::next(int nSamples) {
 
   if (m_inBuffer[0]->full()) {
 
-    if (m_compute_thread) m_compute_thread->join();
+    if (m_useThread && m_compute_thread)
+      m_compute_thread->join();
 
     // transfer samples from inBuffer to model inBuf
     for (int c(0); c < m_inDim; ++c)
       m_inBuffer[c]->get(m_inModel[c], m_bufferSize);
 
-    /* Print("NN: performing\n"); */
-    model_perform(this);
+    if(!m_useThread)
+      model_perform(this);
 
     // transfer samples from model outBuf to outBuffer
     for (int c(0); c < m_outDim; ++c)
       m_outBuffer[c]->put(m_outModel[c], m_bufferSize);
 
-    m_compute_thread = std::make_unique<std::thread>(model_perform, this);
+    if(m_useThread)
+      m_compute_thread = std::make_unique<std::thread>(model_perform, this);
   }
 
   // copy circular buf to out

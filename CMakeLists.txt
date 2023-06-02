@@ -77,15 +77,15 @@ file(GLOB TORCH_DLLS "${TORCH_INSTALL_PREFIX}/lib/*[.dylib|.so|.so.1|.dll]")
 # Begin target NN
 
 set(NN_cpp_files
-    plugins/NNModel/NNModel.cpp
-    plugins/NNModel/backend.cpp
-    plugins/NNModel/parsing_utils.cpp
+    plugins/NNModel/cpp/NNModel.cpp
+    plugins/NNModel/cpp/backend.cpp
+    plugins/NNModel/cpp/parsing_utils.cpp
 )
 set(NN_sc_files
-    plugins/NNModel/NNModel.sc
+    plugins/NNModel/sc/NNModel.sc
 )
 set(NN_schelp_files
-    plugins/NNModel/NNModel.schelp
+    plugins/NNModel/sc/NNModel.schelp
 )
 
 sc_add_server_plugin(

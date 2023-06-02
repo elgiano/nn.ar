@@ -8,7 +8,7 @@
 
 namespace NN {
 
-enum NNInputs { modelIdx, methodIdx, inputs };
+enum NNInputs { modelIdx, methodIdx, bufferSize, inputs };
 
 class NN : public SCUnit {
 
@@ -37,6 +37,7 @@ private:
   void freeBuffers();
 
   bool m_enabled;
+  bool m_useThread;
 
   std::unique_ptr<std::thread> m_compute_thread;
 };
