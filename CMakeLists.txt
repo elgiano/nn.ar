@@ -11,6 +11,8 @@ set(project_name "NN")
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake_modules ${CMAKE_MODULE_PATH})
 set(CMAKE_CXX_STANDARD 17)
 
+include(CMakePrintHelpers)
+
 ####################################################################################################
 # load modules
 include(SuperColliderServerPlugin RESULT_VARIABLE server_plugin_found)
@@ -61,27 +63,46 @@ if (NOVA_SIMD)
 	include_directories(${SC_PATH}/external_libraries/nova-simd)
 endif()
 
-####################################################################################################
-# Begin target NNModel
+find_package(Torch REQUIRED) # find torch
 
-set(NNModel_cpp_files
-    plugins/NNModel/NNModel.hpp
+# cmake_print_variables(TORCH_LIBRARIES)
+# cmake_print_variables(TORCH_INCLUDE_DIRS)
+# cmake_print_variables(TORCH_INSTALL_PREFIX)
+file(GLOB TORCH_DLLS "${TORCH_INSTALL_PREFIX}/lib/*[.dylib|.so|.so.1|.dll]")
+# cmake_print_variables(TORCH_DLLS)
+
+# install(FILES ${TORCH_DLLS} DESTINATION "RAVE/ignore")
+
+####################################################################################################
+# Begin target NN
+
+set(NN_cpp_files
     plugins/NNModel/NNModel.cpp
+    plugins/NNModel/backend.cpp
+    plugins/NNModel/parsing_utils.cpp
 )
-set(NNModel_sc_files
+set(NN_sc_files
     plugins/NNModel/NNModel.sc
 )
-set(NNModel_schelp_files
+set(NN_schelp_files
     plugins/NNModel/NNModel.schelp
 )
 
 sc_add_server_plugin(
-    "NN/NNModel" # desination directory
-    "NNModel" # target name
-    "${NNModel_cpp_files}"
-    "${NNModel_sc_files}"
-    "${NNModel_schelp_files}"
+    "NN/NN" # desination directory
+    "NN" # target name
+    "${NN_cpp_files}"
+    "${NN_sc_files}"
+    "${NN_schelp_files}"
 )
+
+
+if(SCSYNTH)
+  target_link_libraries(NN_scsynth "${TORCH_LIBRARIES}")
+endif()
+if(SUPERNOVA)
+  target_link_libraries(NN_supernova "${TORCH_LIBRARIES}")
+endif()
 
 # End target NNModel
 ####################################################################################################
