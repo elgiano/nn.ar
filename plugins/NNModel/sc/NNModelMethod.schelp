@@ -1,0 +1,19 @@
+class:: NNModelMethod
+summary:: Collects informations about a torchscript model's method
+related:: Classes/NNModel, Classes/NN
+categories:: UGens>Machine Learning
+
+description::
+Used by link::Classes/NNModel:: to store and present informations about a
+model's method. It shouldn't be necessary for the user to create any of these.
+
+instancemethods::
+
+method::name
+human-readable name
+method::idx
+numeric index used to identify this method on the server
+method::numInputs
+number of inputs
+method::numOutputs
+number of outputs

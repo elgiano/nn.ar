@@ -1,0 +1,49 @@
+class:: NNGet
+summary:: Get a parameter value for torchscripts loaded by NNModel
+related:: NN, NNModel, NNSet, NNModelMethod
+categories:: UGens>Machine Learning
+
+description::
+
+classmethods::
+
+method::kr
+
+argument::key
+The key at which the model was loaded by link::Classes/NNModel#*load::
+argument::settingName
+The name of the setting. To list all available setting names for a model, use
+link::Classes/NNModel#settings::
+
+examples::
+
+code::
+
+// load some models
+(
+s.options.memSize = 2**11;
+s.reboot.waitForBoot {
+	NNModel.load(\rave, "~/rave/model.ts")
+	.describe;
+	NNModel.load(\prior, "~/msprior/prior_model.ts")
+	.describe;
+};
+)
+
+// poll 'listen' value
+{ NNGet.kr(\prior, \listen).poll; Silent.ar }.play;
+
+// change it randomly and see it reflected
+NNModel(\prior).set(\listen, 1.rand)
+
+// get the value to a variable (this is what NNModel.get does under the hood)
+(
+{ NNGet.kr(\prior, \listen) }.loadToFloatArray(s.options.blockSize /
+s.sampleRate, s) { |val|
+	x = val.last;
+}
+)
+
+// equivalent using NNModel
+NNModel(\prior).get(\listen) { |val| x = val } 
+::

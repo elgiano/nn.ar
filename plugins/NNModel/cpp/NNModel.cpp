@@ -474,6 +474,7 @@ void NN::next(int nSamples) {
   }
 }
 
+// PARAMS
 
 NNParamUGen::NNParamUGen(): m_model(nullptr) {
   m_model = getModel(in0(NNParamInputs::modelIdx));

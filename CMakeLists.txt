@@ -86,6 +86,7 @@ set(NN_sc_files
 )
 set(NN_schelp_files
     plugins/NNModel/sc/NNModel.schelp
+    plugins/NNModel/sc/NN.schelp
 )
 
 sc_add_server_plugin(

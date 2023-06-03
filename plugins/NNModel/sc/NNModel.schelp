@@ -1,26 +1,106 @@
 class:: NNModel
 summary:: Load torchscripts
-related:: TODO
+related:: Classes/NNModelMethod, Classes/NN
 categories:: UGens>TODO
 
 description::
 
-Load torchscripts
+Load torchscripts on scsynth. Tested with RAVE (v1 and v2) and msprior. 
+Models are loaded asynchronously on the server, and stored in a global
+dictionary so that they can then be accessed by key.
 
+On sclang, NNModel provides convenience methods to initiate model loading on the
+server, and to gather model descriptions (e.g. available methods and settable
+parameters).
+
+It is used internally by the UGen link::Classes/NN::.
 
 classmethods::
 
-method::ar, kr
+method::load
+Sends a message to the server to load a torchscript file, and gathers model
+informations as the server returns them. This method should be use to initialize
+a new NNModel object.
 
-argument::TODO
+argument::key
+a link::Classes/Symbol:: to identify this model object, and to access it after
+it's loaded.
 
-argument::TODO
+argument::path
+the file path of the torchscript file to load. The path is standardized with
+link::Classes/String:-standardizePath:: internally.
+
+method::new, get
+Returns a previously loaded NNModel. These methods can't be used to create new
+objects, use link::#*load:: instead.
+argument::key
+
+returns:: a previously loaded NNModel.
+
+method::loadMsg
+returns the OSC message used by link::#*load::
+argument:: key
+argument:: path
+argument:: infoFile
+the path to a temporary file where the server is going to write model info.
+
+instancemethods::
+
+method::set
+Sets a model parameter to a value. Torchscript parameters need to be of the
+correct data type: supported value types are boolean, integer,
+float and string, for which the server is able to convert to the right type
+automatically (e.g. values of 1 or 1.0 or '1' are all valid to signify 'true' if
+the parameter requires a boolean value).
+See link::Classes/NNGet:: to retrieve a parameter value, and link::Classes/NNSet:: to set a parameter using values from a UGen.
+argument::settingName
+argument::value
+
+method::describe
+Prints a description of the model: all available model methods with the
+respective numbers of inputs and outputs, and all the settable parameters.
+
+method::minBufferSize
+Minimum blockSize required when playing this model.
+
+method::methods
+All available model methods, as a list of link::/Classes/NNModelMethod::s.
+
+method::method
+Gets a single link::/Classes/NNModelMethod:: by name
+argument:: name
+
+method::settings
+A list of all available model setting names.
+
+method::idx
+Numeric index used on the server to identify this model.
+
+method::path
+Path of the torchscript file loaded by this model.
+
+method::key
+
+
 
 
 examples::
 
 code::
 
-{ NNModel.ar(/* TODO */) }.play
+s.boot;
+
+s.bind {
+	// when in a Routine, this method waits until the model has loaded
+	NNModel.load(\rave, "~/rave/ravemodel.ts");
+	// when model has loaded, print a description of all methods and parameters
+	NNModel(\rave).describe;
+}
+
+// setting a parameter
+NNModel(\rave).set(\temperature, 1);
+
+// play
+{ NN.ar(\rave, \forward, WhiteNoise.ar) }.play
 
 ::

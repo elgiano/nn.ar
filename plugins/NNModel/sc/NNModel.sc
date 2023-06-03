@@ -73,6 +73,14 @@ NNModel {
 		forkIfNeeded { server.sync(bundles: [msg]) };
 	}
 
+	get { |settingName, action|
+		{
+			NNGet.kr(this.key, settingName)
+		}.loadToFloatArray(server.options.blockSize / server.sampleRate, server) { |v|
+			action.(v.last)
+		}
+	}
+
 	method { |name|
 		methods ?? { Error("NNModel % has no methods.".format(key)).throw };
 		^methods.detect { |m| m.name == name };
@@ -88,7 +96,7 @@ NNModel {
 			var outDim = m["outDim"].asInteger;
 			NNModelMethod(name, n, inDim, outDim);
 		};
-		settings = json["settings"].collect(_.asSymbol)
+		settings = json["settings"].collect(_.asSymbol) ?? { [] }
 	}
 
 	describe {
@@ -96,7 +104,7 @@ NNModel {
 		"path: %".format(path).postln;
 		"minBufferSize: %".format(minBufferSize).postln;
 		methods.do { |m|
-			"- method %: % in, % out".format(m.name, m.inDim, m.outDim).postln;
+			"- method %: % ins, % outs".format(m.name, m.numInputs, m.numOutputs).postln;
 		}
 	}
 
@@ -106,11 +114,11 @@ NNModel {
 }
 
 NNModelMethod {
-	var <name, <idx, <inDim, <outDim;
+	var <name, <idx, <numInputs, <numOutputs;
 
 	*new { |...args| ^super.newCopyArgs(*args) }
 	printOn { |stream|
-		stream << "%(%: % in, % out)".format(this.class.name, name, inDim, outDim);
+		stream << "%(%: % in, % out)".format(this.class.name, name, numInputs, numOutputs);
 	}
 }
 
@@ -125,12 +133,12 @@ NN : MultiOutUGen {
 			Error("NNModel(%): method % not found".format(key, methodName)).throw
 		};
 		inputs = inputs.asArray;
-		if (inputs.size != method.inDim) {
+		if (inputs.size != method.numInputs) {
 			Error("NNModel(%): method % has % inputs, but was given %."
-				.format(key, methodName, method.inDim, inputs.size)).throw
+				.format(key, methodName, method.numInputs, inputs.size)).throw
 		};
 		^this.new1('audio', model.idx, method.idx, bufferSize, *inputs)
-			.initOutputs(method.outDim, 'audio');
+			.initOutputs(method.numOutputs, 'audio');
 	}
 	
 	checkInputs {
