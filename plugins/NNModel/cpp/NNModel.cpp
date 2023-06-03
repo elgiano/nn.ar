@@ -106,24 +106,54 @@ bool NNModel::load(const char* path) {
   return true;
 }
 
-bool NNModel::set(std::string name, float value, bool warn) {
-  Print("setting %s to %f\n", name.c_str(), value);
-  std::vector<std::string> args;
-  args.push_back("2"); // float type id
-  args.push_back(std::to_string(value));
+bool NNModel::set(std::string name, std::string value, bool warn) {
+  /* Print("setting %s to %f\n", name.c_str(), value); */
+  std::vector<std::string> args = {value};
   try {
-    Print("args ready: %s to %f\n", name.c_str(), value);
     m_backend.set_attribute(name, args);
   } catch (...) {
-    if (warn) Print("NNModel: can't set attribute %s");
+    if (warn) Print("NNModel: can't set attribute %s\n", name.c_str());
     return false;
   }
   return true;
 }
-bool NNModel::set(unsigned short settingIdx, float value, bool warn) {
+bool NNModel::set(unsigned short settingIdx, std::string value, bool warn) {
   std::string setting = getSetting(settingIdx, warn);
   if (setting.empty()) return false;
   return set(setting, value, warn);
+};
+bool NNModel::set(unsigned short settingIdx, float value, bool warn) {
+  return set(settingIdx, std::to_string(value), warn);
+}
+
+float NNModel::get(std::string name, bool warn) {
+  /* Print("setting %s to %f\n", name.c_str(), value); */
+  try {
+    auto value = m_backend.get_attribute(name)[0];
+    /* auto str = m_backend.get_attribute_as_string(name); */
+    /* Print("STR %s\n", str.c_str()); */
+    if (value.isInt()) {
+      return static_cast<float>(value.toInt());
+    }
+    else if (value.isBool()) {
+      return value.toBool() ? 1.0 : 0.0;
+    }
+    else if (value.isDouble()) {
+      return static_cast<float>(value.toDouble());
+    }
+    else {
+      if (warn) Print("NNModel: attribute '%s' has unsupported type.\n", name.c_str());
+      return 0;
+    }
+  } catch (...) {
+    if (warn) Print("NNModel: can't get attribute %s\n", name.c_str());
+    return 0;
+  }
+}
+float NNModel::get(unsigned short settingIdx, bool warn) {
+  std::string setting = getSetting(settingIdx, warn);
+  if (setting.empty()) return false;
+  return get(setting, warn);
 };
 
 
@@ -220,12 +250,9 @@ NNModelMethod* getModelMethod(NNModel* model, float methodIdx) {
   return method;
 }
 
-
 void NN::clearOutputs(int nSamples) {
   ClearUnitOutputs(this, nSamples);
 }
-
-
 
 NN::NN(): 
   m_model(nullptr), m_method(nullptr), 
@@ -265,12 +292,17 @@ NN::NN():
   clearOutputs(1);
 }
 
+NN::~NN() {
+  /* Print("NN: Dtor\n"); */
+  freeBuffers();
+}
+
+// BUFFERS
 
 template<class T>
 T* rtAlloc(World* world, size_t size) {
   return (T*) RTAlloc(world, sizeof(T) * size);
 }
-
 
 RingBuf* allocRingBuffer(World* world, size_t bufSize, size_t numChannels) {
   RingBuf* ctrs = rtAlloc<RingBuf>(world, numChannels);
@@ -330,10 +362,7 @@ void NN::freeBuffers() {
   freeRingBuffer(mWorld, m_outBuffer);
 }
 
-NN::~NN() {
-  /* Print("NN: Dtor\n"); */
-  freeBuffers();
-}
+// PERFORM
 
 void model_perform(NN* nn_instance) {
   /* Print("NN: performing\n"); */
@@ -446,9 +475,11 @@ void NN::next(int nSamples) {
 }
 
 
-NNSet::NNSet(): m_model(nullptr) {
-  m_model = getModel(in0(UGenInputs::modelIdx));
-  m_setting = static_cast<unsigned short>(settingIdx);
+NNParamUGen::NNParamUGen(): m_model(nullptr) {
+  m_model = getModel(in0(NNParamInputs::modelIdx));
+  /* Print("NNParamUGen: Ctor\nmodel: %p\n", m_model); */
+  m_setting = static_cast<unsigned short>(in0(NNParamInputs::settingIdx));
+  /* Print("setting: #%d\n", m_setting); */
   std::string setting;
   if (m_model != nullptr)
     setting = m_model->getSetting(m_setting);
@@ -458,68 +489,56 @@ NNSet::NNSet(): m_model(nullptr) {
     SETCALC(ClearUnitOutputs);
     return;
   }
-  set_calc_function<NNSet, &NNSet::next>();
+  /* Print("settingName: %s\n", setting.c_str()); */
 }
 
+NNSet::NNSet() {
+  set_calc_function<NNSet, &NNSet::next>();
+}
 void NNSet::next(int nSamples) {
   Unit* unit = this;
   ClearUnitOutputs;
+  if (mDone) { return; }
   m_model->set(m_setting, in0(UGenInputs::value));
 }
 
-// CMD
-/* void cleanupLoadMsg(World* world, void* inData) { */
-/*   LoadMsgData* data = (LoadMsgData*) inData; */
-/*   data->free(world); */
-/*   RTFree(world, data); */
-/* } */
-void onLoadMsg(World* world, void* inUserData, sc_msg_iter* args,
-               void* replyAddr) {
-    /* LoadMsgData* data = (LoadMsgData*)RTAlloc(world, sizeof(LoadMsgData)); */
-    /* data->read(world, args); */
-    LoadCmdData* data = LoadCmdData::nrtalloc(ft, args);
-    if (data == nullptr) return;
-    DoAsynchronousCommand(
-        world, replyAddr, "nn_load", data,
-        doLoadMsg, // stage2 is non real time
-        [](World*, void*) { return true; }, // stage3: RT (completion msg performed if true)
-        [](World*, void*) { return true; }, // stage4: NRT (sends /done if true)
-        [](World*, void* data) { NRTFree(data); }, 0, 0);
+NNGet::NNGet() {
+  set_calc_function<NNGet, &NNGet::next>();
 }
-
-void onQueryMsg(World* world, void*, sc_msg_iter* args, void* replyAddr) {
-    const char *key = args->gets();
-    if (key) {
-      doQueryModel(key);
-    } else {
-      gModels.printAllInfo();
-    }
-}
-
-void onSetMsg(World* world, void*, sc_msg_iter* args, void* replyAddr) {
-    SetMsgData* data = (SetMsgData*)RTAlloc(world, sizeof(SetMsgData));
-    data->read(world, args);
-
-    DoAsynchronousCommand(
-        world, replyAddr, "nn_load", data,
-        doSetMsg, // stage2 is non real time
-        [](World*, void*) {
-          return true;
-        }, // stage3: RT (completion msg performed if true)
-        [](World*, void*) {
-          return true;
-        }, // stage4: NRT (sends /done if true)
-        RTFree, 0, 0);
+void NNGet::next(int nSamples) {
+  Unit* unit = this;
+  ClearUnitOutputs;
+  if (mDone) {
+    return;
+  };
+  out0(0) = m_model->get(m_setting, true);
 }
 
 } // namespace NN
+
+void asyncCmdFree(World*, void* data) { NRTFree(data); }
+
+template<class CmdData, auto cmdFn>
+void asyncCmd(World* world, void* inUserData, sc_msg_iter* args, void* replyAddr) {
+  const char* cmdName = ""; // used only in /done, we don't need it
+  CmdData* data = CmdData::nrtalloc(ft, args);
+  if (data == nullptr) return;
+  DoAsynchronousCommand(
+    world, replyAddr, "", data,
+    cmdFn, // stage2 is non real time
+    nullptr, // stage3: RT (completion msg performed if true)
+    nullptr, // stage4: NRT (sends /done if true)
+    asyncCmdFree, 0, 0);
+}
 
 PluginLoad(NNUGens) {
   // Plugin magic
   ft = inTable;
 
-  DefinePlugInCmd("/nn_load", NN::onLoadMsg, nullptr);
-  DefinePlugInCmd("/nn_query", NN::onQueryMsg, nullptr);
-  DefinePlugInCmd("/nn_set", NN::onSetMsg, nullptr);
+  DefinePlugInCmd("/nn_load", asyncCmd<NN::LoadCmdData, NN::doLoadMsg>, nullptr);
+  DefinePlugInCmd("/nn_query", asyncCmd<NN::QueryCmdData, NN::doQueryMsg>, nullptr);
+  DefinePlugInCmd("/nn_set", asyncCmd<NN::SetCmdData, NN::doSetMsg>, nullptr);
   registerUnit<NN::NN>(ft, "NN", false);
+  registerUnit<NN::NNSet>(ft, "NNSet", false);
+  registerUnit<NN::NNGet>(ft, "NNGet", false);
 }

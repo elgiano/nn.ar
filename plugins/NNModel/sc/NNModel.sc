@@ -57,7 +57,7 @@ NNModel {
 	}
 
 	*setMsg { |modelIdx, settingIdx, value|
-		^["/cmd", "/nn_set", modelIdx, settingIdx, value]
+		^["/cmd", "/nn_set", modelIdx, settingIdx, value.asString]
 	}
 	setMsg { |settingName, value|
 		var settingIdx = settings.indexOf(settingName.asSymbol);
@@ -137,4 +137,46 @@ NN : MultiOutUGen {
 		/* TODO */
 		^this.checkValidInputs;
 	}
+}
+
+NNSet : UGen {
+
+	*kr { |key, settingName, input|
+		var model, settingIdx;
+		model = NNModel(key) ?? { 
+			Error("NNSet: model % not found".format(key)).throw
+		};
+		settingIdx = model.settings.indexOf(settingName.asSymbol) ?? {
+			Error("NNSet(%): setting % not found. Settings: %"
+				.format(key, settingName, model.settings)).throw;
+		};
+		^this.new1('control', model.idx, settingIdx, input)
+	}
+	
+	checkInputs {
+		/* TODO */
+		^this.checkValidInputs;
+	}
+
+}
+
+NNGet : UGen {
+
+	*kr { |key, settingName|
+		var model, settingIdx;
+		model = NNModel(key) ?? { 
+			Error("NNGet: model % not found".format(key)).throw
+		};
+		settingIdx = model.settings.indexOf(settingName.asSymbol) ?? {
+			Error("NNGet(%): setting % not found. Settings: %"
+				.format(key, settingName, model.settings)).throw;
+		};
+		^this.new1('control', model.idx, settingIdx)
+	}
+	
+	checkInputs {
+		/* TODO */
+		^this.checkValidInputs;
+	}
+
 }

@@ -45,8 +45,11 @@ public:
 
   NNModelMethod* getMethod(unsigned short idx, bool warn=true);
   std::string getSetting(unsigned short idx, bool warn=true);
-  bool set(std::string name, float value, bool warn=true);
+  bool set(std::string name, std::string value, bool warn=true);
+  bool set(unsigned short settingIdx, std::string value, bool warn=true);
   bool set(unsigned short settingIdx, float value, bool warn=true);
+  float get(std::string name, bool warn);
+  float get(unsigned short settingIdx, bool warn);
 
   void streamInfo(std::ostream& dest);
   bool dumpInfo(const char* filename);

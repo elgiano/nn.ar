@@ -5,7 +5,6 @@
 #include "SC_PlugIn.hpp"
 #include "rt_circular_buffer.h"
 
-
 namespace NN {
 
 using RingBuf = RTCircularBuffer<float, float>;
@@ -43,16 +42,30 @@ private:
 };
 
 
-class NNSet : public SCUnit {
+class NNParamUGen : public SCUnit {
+public:
+  NNParamUGen();
+
+  enum NNParamInputs { modelIdx=0, settingIdx };
+  NNModel* m_model;
+  unsigned short m_setting;
+};
+
+class NNSet : public NNParamUGen {
 public:
   NNSet();
 
   void next(int nSamples);
 
 private:
-  enum UGenInputs { modelIdx=0, settingIdx, value };
-  NNModel* m_model;
-  unsigned short m_setting;
+  enum UGenInputs { value=NNParamInputs::settingIdx+1 };
+};
+
+class NNGet : public NNParamUGen {
+public:
+  NNGet();
+
+  void next(int nSamples);
 };
 
 } // namespace NN

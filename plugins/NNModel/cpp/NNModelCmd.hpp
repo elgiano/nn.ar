@@ -4,109 +4,12 @@
 
 namespace NN {
 
-/* struct CmdString { */
-/*   static InterfaceTable* ft; */
-/*   char* string; */
-/*   void alloc(World *world, const char* s) { */
-/*     string = (char *) RTAlloc(world, strlen(s) + 1); */
-/*     strcpy(string, s); */
-/*   }; */
-/*   void free(World *world){ RTFree(world, string); }; */
-/* }; */
-
-/* class AsyncCmd { */
-/* public: */  
-/*   static InterfaceTable* ft; */
-/*   AsyncCmd(); */
-/*   ~AsyncCmd(); */
-
-/*   bool checkInputs(void* data); */
-/*   bool Stage2(World* world, void* data); */
-/*   bool Stage3(World* world, void* data); */
-/*   bool Stage4(World* world, void* data); */
-/*   void cleanup(World* world, void* data); */
-
-/*   const char* allocString(World* world, const char* s) { */
-/*     char* buf = (char*) RTAlloc(world, strlen(s) + 1); */
-/*     if (buf != nullptr) strcpy(buf, s); */
-/*     return (const char*) buf; */
-/*   } */
-/* private: */
-
-/*   void* data; */
-/* }; */
-
-/* class LoadCmd : public AsyncCmd { */
-/*   struct Data { */
-/*     char* key; */
-/*     char* path; */
-/*     char* filename; */
-/*   }; */ 
-  
-/*   LoadCmd(World* world, void *inData, sc_msg_iter* args) { */
-/*     const char* key = args->gets(); */ 
-/*     const char* path = args->gets(); */ 
-/*     const char* filename = args->gets(); */ 
-/*     if (key == 0 || path == 0) { */
-/*       Print("Error: LoadCmd needs a key and a path to a .ts file\n"); */
-/*       return; */
-/*     } */
-/*     size_t memSize = strlen(key) + strlen(path) + strlen(filename) + 3; */
-/*     void* memData = RTAcll */
-/*   }; */
-
-/*   cleanup(World* world, void *inData) { */
-
-/*   } */
-
-/*   Stage2(World* world, void *inData) { */
-/*     LoadMsgData* data = (LoadMsgData*)inData; */
-/*     const char* key = data->key;           //.string; */
-/*     const char* path = data->path;         //.string; */
-/*     const char* filename = data->filename; //.string; */
-
-/*     bool loaded = gModels.load(key, path); */
-
-/*     if (loaded && filename != nullptr) { */
-/*       gModels.get(key)->dumpInfo(filename); */
-/*     } */
-/*     return true; */
-/*   } */
-/* private: */
-/*   Data* data; */
-/* }; */
-
-struct LoadMsgData {
-  /* MsgString key; */
-  /* MsgString path; */
-  /* MsgString filename; */
-  const char* key;
-  const char* path;
-  const char* filename;
-
-  void read(World *world, sc_msg_iter* args) {
-    /* key.alloc(world, args->gets()); */
-    /* path.alloc(world, args->gets()); */
-    /* filename.alloc(world, args->gets()); */
-    key = args->gets();
-    path = args->gets();
-    filename = args->gets();
-  };
-
-  /* void free(World *world) { */
-  /*   key.free(world); */
-  /*   path.free(world); */
-  /*   filename.free(world); */
-  /* }; */
-
-};
-
-
 char* copyStrToBuf(char** buf, const char* str) {
   char* res = strcpy(*buf, str); *buf += strlen(str) + 1;
   return res;
 }
 
+// /cmd /nn_set str str str
 struct LoadCmdData {
 public:
   const char* key;
@@ -143,7 +46,6 @@ public:
   LoadCmdData() = delete;
 };
 
-
 bool doLoadMsg(World* world, void* inData) {
     LoadCmdData* data = (LoadCmdData*)inData;
     const char* key = data->key;           //.string;
@@ -158,41 +60,82 @@ bool doLoadMsg(World* world, void* inData) {
     return true;
 }
 
-struct SetMsgData {
+// /cmd /nn_set int int str
+struct SetCmdData {
+public:
   int modelIdx;
-  unsigned short setting;
-  float value;
+  int settingIdx;
+  const char* valueString;
 
-  bool read(World *world, sc_msg_iter* args) {
-    modelIdx = args->geti(-1);
-    setting = args->geti(-1);
-    value = args->getf();
-    if (modelIdx < 0 || setting < 0) {
-      return false;
+  static SetCmdData* nrtalloc(InterfaceTable* ft, sc_msg_iter* args) {
+
+    int modelIdx = args->geti(-1);
+    int settingIdx = args->geti(-1);
+    const char* valueString = args->gets();
+    if (modelIdx < 0 || settingIdx < 0) {
+      Print("Error: SetCmd needs a model and a setting indices\n");
+      return nullptr;
     }
-    return true;
-  };
+
+    size_t dataSize = sizeof(SetCmdData)
+      + strlen(valueString) + 1;
+
+    SetCmdData* cmdData = (SetCmdData*) NRTAlloc(dataSize);
+    if (cmdData == nullptr) {
+      Print("SetCmdData: alloc failed.\n");
+      return nullptr;
+    }
+    char* data = (char*) (cmdData + 1);
+    cmdData->modelIdx = modelIdx;
+    cmdData->settingIdx = settingIdx;
+    cmdData->valueString = copyStrToBuf(&data, valueString);
+    return cmdData;
+  }
+
+  SetCmdData() = delete;
 };
 
 bool doSetMsg(World* world, void* inData) {
-  SetMsgData* data = (SetMsgData*)inData;
+  SetCmdData* data = (SetCmdData*)inData;
   int modelIdx = data->modelIdx;
-  int settingIdx = data->setting;
-  float value = data->value;
+  int settingIdx = data->settingIdx;
+  std::string valueString = data->valueString;
 
   auto model = gModels.get(modelIdx);
   if (!model) return true;
-  model->set(settingIdx, value);
+  model->set(settingIdx, valueString);
   return true;
 }
 
+// /cmd /nn_query str
+struct QueryCmdData {
+public:
+  int modelIdx;
 
-void doQueryModel(const char* key) {
-    const auto model = gModels.get(key, true);
-    if (!model)
-      return;
+  static QueryCmdData* nrtalloc(InterfaceTable* ft, sc_msg_iter* args) {
+    int modelIdx = args->geti(-1);
+    QueryCmdData* cmdData = (QueryCmdData*) NRTAlloc(sizeof(QueryCmdData));
+    if (cmdData == nullptr) {
+      Print("QueryCmdData: alloc failed.\n");
+      return nullptr;
+    }
+    cmdData->modelIdx = modelIdx;
+    return cmdData;
+  }
+
+  QueryCmdData() = delete;
+};
+bool doQueryMsg(World* world, void* inData) {
+  QueryCmdData* data = (QueryCmdData*)inData;
+  int modelIdx = data->modelIdx;
+  if (modelIdx < 0) {
+    gModels.printAllInfo();
+    return true;
+  }
+  const auto model = gModels.get(modelIdx, true);
+  if (model)
     model->printInfo();
+  return true;
 }
-
 
 }
