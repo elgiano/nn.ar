@@ -13,7 +13,7 @@ NNModel {
 	*load { |key, path, server(Server.default)|
 		var model = this.get(key);
 		if (path.isKindOf(String).not) {
-			Error("NNModel.load: path needs to be a string, got: %").fomat(path).throw
+			Error("NNModel.load: path needs to be a string, got: %").format(path).throw
 		};
 		model ?? {
 			model = super.newCopyArgs(server, key);
@@ -23,16 +23,29 @@ NNModel {
 		^model;
 	}
 
+	*loadMsg { |key, path, infoFile|
+		^["/cmd", "/nn_load", key, path, infoFile]
+	}
+	loadMsg { |path, infoFile|
+		^this.class.loadMsg(this.key, path, infoFile)
+	}
 	load { |path|
+		var infoFile, loadMsg;
+		path = path.standardizePath;
+		if (server.serverRunning.not) {
+			Error("server not running").throw
+		};
+		if (File.exists(path).not) {
+			Error("model file '%' not found".format(path)).throw
+		};
 
-		if (server.serverRunning.not) { Error("server not running").throw };
+		infoFile = PathName.tmp +/+ "nn-sc-%.json".format(UniqueID.next());
+		loadMsg = this.loadMsg(path, infoFile);
 
 		forkIfNeeded {
-			var infoFile = PathName.tmp +/+ "nn-sc-%.json".format(UniqueID.next());
 			var infoJson;
-			server.sync(bundles: [
-				["/cmd", "/nn_load", this.key, path, infoFile]
-			]);
+			server.sync(bundles: [loadMsg]);
+			// server writes info file: read it
 			if (File.exists(infoFile).not) {
 				error("NNModel: can't load info file '%'".format(infoFile));
 			} {
@@ -43,32 +56,26 @@ NNModel {
 		}
 	}
 
-	set { |settingName, value|
-
+	*setMsg { |modelIdx, settingIdx, value|
+		^["/cmd", "/nn_set", modelIdx, settingIdx, value]
+	}
+	setMsg { |settingName, value|
 		var settingIdx = settings.indexOf(settingName.asSymbol);
 		settingIdx ?? {
 			Error("NNModel(%): setting % not found. Settings: %"
 				.format(this.key, settingName, settings)).throw;
 		};
-		forkIfNeeded {
-			server.sync(bundles: [
-				["/cmd", "/nn_set", this.key, settingIdx, value]
-			]);
-		}
+		^this.class.setMsg(this.idx, settingIdx, value)
+	}
+	set { |settingName, value|
+		var msg = this.setMsg(settingName, value);
+		if (server.serverRunning.not) { Error("server not running").throw };
+		forkIfNeeded { server.sync(bundles: [msg]) };
 	}
 
 	method { |name|
 		methods ?? { Error("NNModel % has no methods.".format(key)).throw };
 		^methods.detect { |m| m.name == name };
-	}
-
-	describe {
-		"NNModel(%)".format(key).postln;
-		"path: %".format(path).postln;
-		"minBufferSize: %".format(minBufferSize).postln;
-		methods.do { |m|
-			"- method %: % in, % out".format(m.name, m.inDim, m.outDim).postln;
-		}
 	}
 
 	prParseInfoJson { |json|
@@ -82,6 +89,15 @@ NNModel {
 			NNModelMethod(name, n, inDim, outDim);
 		};
 		settings = json["settings"].collect(_.asSymbol)
+	}
+
+	describe {
+		"NNModel(%)".format(key).postln;
+		"path: %".format(path).postln;
+		"minBufferSize: %".format(minBufferSize).postln;
+		methods.do { |m|
+			"- method %: % in, % out".format(m.name, m.inDim, m.outDim).postln;
+		}
 	}
 
 	printOn { |stream|
