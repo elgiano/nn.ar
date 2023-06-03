@@ -258,9 +258,11 @@ NN::NN():
     set_calc_function<NN, &NN::clearOutputs>();
     return;
   }
+
   /* Print("NN: Ctor done\n"); */
-  
-  set_calc_function<NN, &NN::next>();
+  m_enabled = true;
+  mCalcFunc = make_calc_function<NN, &NN::next>();
+  clearOutputs(1);
 }
 
 
@@ -405,6 +407,7 @@ void model_perform(NN* nn_instance) {
 void NN::next(int nSamples) {
   if (!m_model->is_loaded() || mDone || !m_enabled) {
     ClearUnitOutputs(this, nSamples);
+    return;
   };
 
   // copy inputs to circular buffer
