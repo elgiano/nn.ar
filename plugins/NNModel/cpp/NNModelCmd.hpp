@@ -51,6 +51,30 @@ bool doLoadMsg(World* world, void* inData) {
       gModels.get(key)->dumpInfo(filename);
     }
     return true;
+
+}
+
+struct SetMsgData {
+  const char* key;
+  unsigned short setting;
+  float value;
+
+  void read(World *world, sc_msg_iter* args) {
+    key = args->gets();
+    setting = args->geti();
+    value = args->getf();
+  };
+};
+bool doSetMsg(World* world, void* inData) {
+  SetMsgData* data = (SetMsgData*)inData;
+  const char* key = data->key;
+  int settingIdx = data->setting;
+  float value = data->value;
+
+  auto model = gModels.get(key);
+  if (!model) return true;
+  model->set(settingIdx, value);
+  return true;
 }
 
 
@@ -60,5 +84,6 @@ void doQueryModel(const char* key) {
       return;
     model->printInfo();
 }
+
 
 }

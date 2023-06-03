@@ -36,6 +36,20 @@ NNModel {
 		}
 	}
 
+	set { |settingName, value|
+
+		var settingIdx = settings.indexOf(settingName.asSymbol);
+		settingIdx ?? {
+			Error("NNModel(%): setting % not found. Settings: %"
+				.format(this.key, settingName, settings)).throw;
+		};
+		forkIfNeeded {
+			server.sync(bundles: [
+				["/cmd", "/nn_set", this.key, settingIdx, value]
+			]);
+		}
+	}
+
 	method { |name|
 		methods ?? { Error("NNModel % has no methods.".format(key)).throw };
 		^methods.detect { |m| m.name == name };

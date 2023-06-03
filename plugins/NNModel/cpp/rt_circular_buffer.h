@@ -6,9 +6,9 @@
 namespace NN {
 template <class in_type, class out_type> class RTCircularBuffer {
 public:
-  RTCircularBuffer() {};
-  bool initialize(World* world, size_t size);
-  void free(World* world);
+  RTCircularBuffer(out_type* buf, size_t size): _buffer(buf), _max_size(size) {
+  };
+  out_type* getBuffer() { return _buffer; }
   bool empty() { 
     return (!_full && _head == _tail);
   }

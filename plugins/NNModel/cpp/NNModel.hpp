@@ -44,6 +44,9 @@ public:
   ~NNModel();
 
   NNModelMethod* getMethod(unsigned short idx, bool warn=true);
+  std::string getSetting(unsigned short idx, bool warn=true);
+  bool set(std::string name, float value, bool warn=true);
+  bool set(unsigned short settingIdx, float value, bool warn=true);
 
   void streamInfo(std::ostream& dest);
   bool dumpInfo(const char* filename);
@@ -59,6 +62,7 @@ public:
   const char* m_path;
   unsigned short m_idx;
   std::vector<NNModelMethod> m_methods;
+  std::vector<std::string> m_settings;
   int m_higherRatio;
 
 private:

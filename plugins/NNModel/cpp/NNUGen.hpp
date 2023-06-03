@@ -8,10 +8,9 @@
 
 namespace NN {
 
-enum NNInputs { modelIdx, methodIdx, bufferSize, inputs };
+using RingBuf = RTCircularBuffer<float, float>;
 
 class NN : public SCUnit {
-
 public:
 
   NN();
@@ -19,27 +18,41 @@ public:
 
   void next(int nSamples);
 
+
   NNModel* m_model;
-  std::string m_method;
+  NNModelMethod* m_method;
   int m_inDim, m_outDim;
 
-  // BUFFERS
   int m_bufferSize;
-  RTCircularBuffer<float, float>** m_inBuffer;
-  RTCircularBuffer<float, float>** m_outBuffer;
-  float** m_inModel;
-  float** m_outModel;
-private:
+  float* m_inModel;
+  float* m_outModel;
 
+private:
+  enum UGenInputs { modelIdx=0, methodIdx, bufSize, inputs };
   void clearOutputs(int nSamples);
   bool loadModel();
   bool allocBuffers();
   void freeBuffers();
 
+  RingBuf* m_inBuffer;
+  RingBuf* m_outBuffer;
   bool m_enabled;
   bool m_useThread;
 
   std::unique_ptr<std::thread> m_compute_thread;
+};
+
+
+class NNSet : public SCUnit {
+public:
+  NNSet();
+
+  void next(int nSamples);
+
+private:
+  enum UGenInputs { modelIdx=0, settingIdx, value };
+  NNModel* m_model;
+  unsigned short m_setting;
 };
 
 } // namespace NN
