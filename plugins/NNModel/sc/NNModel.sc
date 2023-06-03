@@ -12,6 +12,9 @@ NNModel {
 
 	*load { |key, path, server(Server.default)|
 		var model = this.get(key);
+		if (path.isKindOf(String).not) {
+			Error("NNModel.load: path needs to be a string, got: %").fomat(path).throw
+		};
 		model ?? {
 			model = super.newCopyArgs(server, key);
 			models[key] = model;
@@ -30,9 +33,13 @@ NNModel {
 			server.sync(bundles: [
 				["/cmd", "/nn_load", this.key, path, infoFile]
 			]);
-			infoJson = File.readAllString(infoFile).parseJSON;
-			this.prParseInfoJson(infoJson);
-			File.delete(infoFile);
+			if (File.exists(infoFile).not) {
+				error("NNModel: can't load info file '%'".format(infoFile));
+			} {
+				infoJson = File.readAllString(infoFile).parseJSON;
+				this.prParseInfoJson(infoJson);
+				File.delete(infoFile);
+			}
 		}
 	}
 

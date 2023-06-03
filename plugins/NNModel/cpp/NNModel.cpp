@@ -472,19 +472,16 @@ void NNSet::next(int nSamples) {
 /* } */
 void onLoadMsg(World* world, void* inUserData, sc_msg_iter* args,
                void* replyAddr) {
-    LoadMsgData* data = (LoadMsgData*)RTAlloc(world, sizeof(LoadMsgData));
-    data->read(world, args);
-
+    /* LoadMsgData* data = (LoadMsgData*)RTAlloc(world, sizeof(LoadMsgData)); */
+    /* data->read(world, args); */
+    LoadCmdData* data = LoadCmdData::nrtalloc(ft, args);
+    if (data == nullptr) return;
     DoAsynchronousCommand(
         world, replyAddr, "nn_load", data,
         doLoadMsg, // stage2 is non real time
-        [](World*, void*) {
-          return true;
-        }, // stage3: RT (completion msg performed if true)
-        [](World*, void*) {
-          return true;
-        }, // stage4: NRT (sends /done if true)
-        RTFree, 0, 0);
+        [](World*, void*) { return true; }, // stage3: RT (completion msg performed if true)
+        [](World*, void*) { return true; }, // stage4: NRT (sends /done if true)
+        [](World*, void* data) { NRTFree(data); }, 0, 0);
 }
 
 void onQueryMsg(World* world, void*, sc_msg_iter* args, void* replyAddr) {
