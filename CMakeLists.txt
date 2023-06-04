@@ -65,14 +65,6 @@ endif()
 
 find_package(Torch REQUIRED) # find torch
 
-# cmake_print_variables(TORCH_LIBRARIES)
-# cmake_print_variables(TORCH_INCLUDE_DIRS)
-# cmake_print_variables(TORCH_INSTALL_PREFIX)
-file(GLOB TORCH_DLLS "${TORCH_INSTALL_PREFIX}/lib/*[.dylib|.so|.so.1|.dll]")
-# cmake_print_variables(TORCH_DLLS)
-
-# install(FILES ${TORCH_DLLS} DESTINATION "RAVE/ignore")
-
 ####################################################################################################
 # Begin target NN
 
@@ -90,7 +82,7 @@ set(NN_schelp_files
 )
 
 sc_add_server_plugin(
-    "NN/NN" # desination directory
+    "NN/" # desination directory
     "NN" # target name
     "${NN_cpp_files}"
     "${NN_sc_files}"
