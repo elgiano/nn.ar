@@ -1,24 +1,17 @@
-NN : MultiOutUGen {
+NNUGen : MultiOutUGen {
 
-	*ar { |key, methodName, bufferSize, inputs|
-		var model, method, method_idx;
-		model = NNModel(key) ?? { 
-			Error("NN: model % not found".format(key)).throw
-		};
-		method = model.method(methodName) ?? { 
-			Error("NNModel(%): method % not found".format(key, methodName)).throw
-		};
-		inputs = inputs.asArray;
-		if (inputs.size != method.numInputs) {
-			Error("NNModel(%): method % has % inputs, but was given %."
-				.format(key, methodName, method.numInputs, inputs.size)).throw
-		};
-		^this.new1('audio', model.idx, method.idx, bufferSize, *inputs)
-			.initOutputs(method.numOutputs, 'audio');
+	*ar { |modelIdx, methodIdx, bufferSize, numOutputs, inputs|
+		^this.new1('audio', modelIdx, methodIdx, bufferSize, *inputs)
+			.initOutputs(numOutputs, 'audio');
 	}
 	
 	checkInputs {
-		/* TODO */
+		// modelIdx, methodIdx and bufferSize are not modulatable
+		['modelIdx', 'methodIdx', 'bufferSize'].do { |name, n|
+			if (inputs[n].rate != \scalar) {
+				^": input % is not modulatable".format(name);	
+			}
+		}
 		^this.checkValidInputs;
 	}
 }

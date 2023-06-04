@@ -78,7 +78,7 @@ bool NNModel::load(const char* path) {
   if (loaded) {
     Print("NNBackend: loaded %s\n", path);
   } else {
-    Print("ERROR: NNModel can't load model %s\n", path);
+    Print("ERROR: NNBackend can't load model %s\n", path);
     return false;
   }
 
@@ -185,27 +185,24 @@ std::string NNModel::getSetting(unsigned short idx, bool warn) {
 // file dumps are needed to share info with client
 
 void NNModel::streamInfo(std::ostream& stream) {
-  stream << "{idx: " << m_idx
-    << ", modelPath: '" << m_path << "'"
-    << ", minBufferSize: " << m_higherRatio
-    << ", methods: [";
+  stream << "- idx: " << m_idx
+    << "\n  modelPath: " << m_path
+    << "\n  minBufferSize: " << m_higherRatio
+    << "\n  methods:";
   for (auto m: m_methods) {
-    stream << "{name: '" << m.name << "'"
-      << ", inDim: " << m.inDim
-      << ", inRatio: " << m.inRatio
-      << ", outDim: " << m.outDim
-      << ", outRatio: " << m.outRatio
-      << "}, ";
+    stream << "\n    - name: " << m.name
+      << "\n      inDim: " << m.inDim
+      << "\n      inRatio: " << m.inRatio
+      << "\n      outDim: " << m.outDim
+      << "\n      outRatio: " << m.outRatio;
   }
-  stream << "]";
   auto settings = m_backend.get_settable_attributes();
   if (settings.size() > 0) {
-    stream << ", settings: [";
+    stream << "\n  settings:";
     for(std::string attr: settings)
-      stream << "'" << attr << "', "; 
-    stream << "]";
+      stream << "\n    - " << attr; 
   }
-  stream << "}";
+  stream << "\n";
 }
 
 void NNModel::printInfo() {
@@ -218,7 +215,7 @@ bool NNModel::dumpInfo(const char* filename) {
   try {
     file.open(filename);
     if (!file.is_open()) {
-      Print("ERROR: NNModel couldn't open file %s\n", filename);
+      Print("ERROR: NNBackend couldn't open file %s\n", filename);
       return false;
     }
     streamInfo(file);
@@ -226,7 +223,7 @@ bool NNModel::dumpInfo(const char* filename) {
     return true;
   }
   catch (...) {
-    Print("ERROR: NNModel couldn't dump info to file %s\n", filename);
+    Print("ERROR: NNBackend couldn't dump info to file %s\n", filename);
     return false;
   }
 }
@@ -236,7 +233,7 @@ bool NNModel::dumpInfo(const char* filename) {
 NNModel* getModel(float modelIdx) {
   auto model = gModels.get(static_cast<unsigned short>(modelIdx));
   if (model == nullptr)
-    Print("NN: model %d not found");
+    Print("NNBackend: model %d not found");
   return model;
 }
 
@@ -245,7 +242,7 @@ NNModelMethod* getModelMethod(NNModel* model, float methodIdx) {
 
   auto method = model->getMethod(static_cast<unsigned short>(methodIdx));
   if (method == nullptr)
-    Print("NN: %d not found\n", methodIdx);
+    Print("NNBackend: method %d not found\n", methodIdx);
   return method;
 }
 
@@ -279,7 +276,7 @@ NN::NN():
   }
 
   if (bufferSize() > m_bufferSize) {
-    Print("NN: blockSize(%d) larger than model bufferSize(%d), disabling\n", bufferSize(), m_bufferSize);
+    Print("NNBackend: blockSize(%d) larger than model bufferSize(%d), disabling\n", bufferSize(), m_bufferSize);
     mDone = true;
     set_calc_function<NN, &NN::clearOutputs>();
     return;
@@ -373,63 +370,6 @@ void model_perform(NN* nn_instance) {
     out_model.push_back(&nn_instance->m_outModel[c * m_bufferSize]);
   nn_instance->m_model->perform(in_model, out_model, nn_instance->m_bufferSize,
                                 nn_instance->m_method->name, 1);
-  /* // COPY BUFFER INTO A TENSOR */
-  /* int in_dim = nn_instance->m_inDim; */
-  /* int out_dim = nn_instance->m_outDim; */
-  /* int n_vec = nn_instance->m_bufferSize; */
-  /* int n_batches = 1; */
-  /* int in_ratio = nn_instance->m_inRatio; */
-  /* int out_ratio = nn_instance->m_outRatio; */
-  /* std::vector<at::Tensor> tensor_in; */
-  /* for (int c(0); c < nn_instance->m_inDim; c++) */
-  /*   tensor_in.push_back(torch::from_blob(nn_instance->m_inModel[c], {1, 1, n_vec})); */
-
-  /* auto cat_tensor_in = torch::cat(tensor_in, 1); */
-  /* cat_tensor_in = cat_tensor_in.reshape({in_dim, n_batches, -1, in_ratio}); */
-  /* cat_tensor_in = cat_tensor_in.select(-1, -1); */
-  /* cat_tensor_in = cat_tensor_in.permute({1, 0, 2}); */
-
-  /* /1* if (m_cuda_available) *1/ */
-  /* /1*   cat_tensor_in = cat_tensor_in.to(CUDA); *1/ */
-
-  /* std::vector<torch::jit::IValue> inputs = {cat_tensor_in}; */
-
-  /* // PROCESS TENSOR */
-  /* at::Tensor tensor_out; */
-  /* std::unique_lock<std::mutex> model_lock(m_model_mutex); */
-  /* try { */
-  /*   tensor_out = m_model.get_method(method)(inputs).toTensor(); */
-  /*   tensor_out = tensor_out.repeat_interleave(out_ratio).reshape( */
-  /*       {n_batches, out_dim, -1}); */
-  /* } catch (const std::exception &e) { */
-  /*   std::cerr << e.what() << '\n'; */
-  /*   return; */
-  /* } */
-  /* model_lock.unlock(); */
-
-  /* int out_batches(tensor_out.size(0)), out_channels(tensor_out.size(1)), */
-  /*     out_n_vec(tensor_out.size(2)); */
-
-  /* // CHECKS ON TENSOR SHAPE */
-  /* if (out_batches * out_channels != out_buffer.size()) { */
-  /*   std::cout << "bad out_buffer size, expected " << out_batches * out_channels */
-  /*             << " buffers, got " << out_buffer.size() << "!\n"; */
-  /*   return; */
-  /* } */
-
-  /* if (out_n_vec != n_vec) { */
-  /*   std::cout << "model output size is not consistent, expected " << n_vec */
-  /*             << " samples, got " << out_n_vec << "!\n"; */
-  /*   return; */
-  /* } */
-
-  /* tensor_out = tensor_out.to(CPU); */
-  /* tensor_out = tensor_out.reshape({out_batches * out_channels, -1}); */
-  /* auto out_ptr = tensor_out.contiguous().data_ptr<float>(); */
-
-  /* for (int i(0); i < out_buffer.size(); i++) { */
-  /*   memcpy(out_buffer[i], out_ptr + i * n_vec, n_vec * sizeof(float)); */
-  /* } */
 }
 
 void NN::next(int nSamples) {
@@ -516,19 +456,19 @@ void NNGet::next(int nSamples) {
 
 } // namespace NN
 
-void asyncCmdFree(World*, void* data) { NRTFree(data); }
+void nrtFree(World*, void* data) { NRTFree(data); }
 
 template<class CmdData, auto cmdFn>
 void asyncCmd(World* world, void* inUserData, sc_msg_iter* args, void* replyAddr) {
-  const char* cmdName = ""; // used only in /done, we don't need it
-  CmdData* data = CmdData::nrtalloc(ft, args);
+  const char* cmdName = ""; // used only in /done, we use /sync instead
+  CmdData* data = CmdData::alloc(args, ft, nullptr);
   if (data == nullptr) return;
   DoAsynchronousCommand(
     world, replyAddr, "", data,
     cmdFn, // stage2 is non real time
     nullptr, // stage3: RT (completion msg performed if true)
     nullptr, // stage4: NRT (sends /done if true)
-    asyncCmdFree, 0, 0);
+    nrtFree, 0, 0);
 }
 
 PluginLoad(NNUGens) {
@@ -538,7 +478,7 @@ PluginLoad(NNUGens) {
   DefinePlugInCmd("/nn_load", asyncCmd<NN::LoadCmdData, NN::doLoadMsg>, nullptr);
   DefinePlugInCmd("/nn_query", asyncCmd<NN::QueryCmdData, NN::doQueryMsg>, nullptr);
   DefinePlugInCmd("/nn_set", asyncCmd<NN::SetCmdData, NN::doSetMsg>, nullptr);
-  registerUnit<NN::NN>(ft, "NN", false);
+  registerUnit<NN::NN>(ft, "NNUGen", false);
   registerUnit<NN::NNSet>(ft, "NNSet", false);
   registerUnit<NN::NNGet>(ft, "NNGet", false);
 }

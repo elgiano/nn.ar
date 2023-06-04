@@ -24,13 +24,14 @@ NNModel {
 	}
 
 	*loadMsg { |key, path, infoFile|
+		path = path.standardizePath;
 		^["/cmd", "/nn_load", key, path, infoFile]
 	}
 	loadMsg { |path, infoFile|
 		^this.class.loadMsg(this.key, path, infoFile)
 	}
-	load { |path|
-		var infoFile, loadMsg;
+	load { |path, infoFile(nil)|
+		var loadMsg, saveInfo = infoFile.notNil;
 		path = path.standardizePath;
 		if (server.serverRunning.not) {
 			Error("server not running").throw
@@ -39,21 +40,40 @@ NNModel {
 			Error("model file '%' not found".format(path)).throw
 		};
 
-		infoFile = PathName.tmp +/+ "nn-sc-%.json".format(UniqueID.next());
+		if (infoFile.isNil) {
+			infoFile = PathName.tmp +/+ "nn-sc-%.yaml".format(UniqueID.next())
+		};
 		loadMsg = this.loadMsg(path, infoFile);
 
 		forkIfNeeded {
-			var infoJson;
+			var yaml;
 			server.sync(bundles: [loadMsg]);
 			// server writes info file: read it
 			if (File.exists(infoFile).not) {
 				error("NNModel: can't load info file '%'".format(infoFile));
 			} {
-				infoJson = File.readAllString(infoFile).parseJSON;
-				this.prParseInfoJson(infoJson);
-				File.delete(infoFile);
+				yaml = File.readAllString(infoFile).parseYAML[0];
+				this.prParseInfoYAML(yaml);
+				if (saveInfo.not) {
+					File.delete(infoFile);
+				};
 			}
 		}
+	}
+
+	*ar { |key, methodName, bufferSize, inputs|
+		var model = this.get(key) ?? {
+			Error("NNModel: model % not found".format(key)).throw;
+		};
+		var method = model.method(methodName) ?? { 
+			Error("NNModel(%): method % not found".format(key, methodName)).throw
+		};
+		inputs = inputs.asArray;
+		if (inputs.size != method.numInputs) {
+			Error("NNModel(%): method % has % inputs, but was given %."
+				.format(model.key, methodName, method.numInputs, inputs.size)).throw
+		};
+		^NNUGen.ar(model.idx, method.idx, bufferSize, method.numOutputs, inputs)
 	}
 
 	*setMsg { |modelIdx, settingIdx, value|
@@ -86,7 +106,7 @@ NNModel {
 		^methods.detect { |m| m.name == name };
 	}
 
-	prParseInfoJson { |json|
+	prParseInfoYAML { |json|
 		idx = json["idx"].asInteger;
 		path = json["modelPath"];
 		minBufferSize = json["minBufferSize"];
@@ -110,7 +130,7 @@ NNModel {
 	}
 
 	printOn { |stream|
-		stream << "%(%, %)%".format(this.class.name, key, minBufferSize, methods.collect(_.name));
+		stream << "NNModel(%, %)%".format(key, minBufferSize, methods.collect(_.name));
 	}
 }
 
@@ -122,4 +142,5 @@ NNModelMethod {
 		stream << "%(%: % in, % out)".format(this.class.name, name, numInputs, numOutputs);
 	}
 }
+
 

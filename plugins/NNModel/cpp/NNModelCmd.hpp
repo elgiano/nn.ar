@@ -18,11 +18,12 @@ public:
   const char* path;
   const char* filename;
 
-  static LoadCmdData* nrtalloc(InterfaceTable* ft, sc_msg_iter* args) {
+  static LoadCmdData* alloc(sc_msg_iter* args, InterfaceTable* ft, World* world=nullptr) {
 
     const char* key = args->gets();
     const char* path = args->gets();
-    const char* filename = args->gets();
+    const char* filename = args->gets("");
+
     if (key == 0 || path == 0) {
       Print("Error: LoadCmd needs a key and a path to a .ts file\n");
       return nullptr;
@@ -33,11 +34,12 @@ public:
       + strlen(path) + 1
       + strlen(filename) + 1;
 
-    LoadCmdData* cmdData = (LoadCmdData*) NRTAlloc(dataSize);
+    LoadCmdData* cmdData = (LoadCmdData*) (world ? RTAlloc(world, dataSize) : NRTAlloc(dataSize));
     if (cmdData == nullptr) {
       Print("LoadCmdData: alloc failed.\n");
       return nullptr;
     }
+
     char* data = (char*) (cmdData + 1);
     cmdData->key = copyStrToBuf(&data, key);
     cmdData->path = copyStrToBuf(&data, path);
@@ -49,6 +51,7 @@ public:
 };
 
 bool doLoadMsg(World* world, void* inData) {
+    std::cout << "nn_load: stage 2" << std::endl;
     LoadCmdData* data = (LoadCmdData*)inData;
     const char* key = data->key;           //.string;
     const char* path = data->path;         //.string;
@@ -56,7 +59,7 @@ bool doLoadMsg(World* world, void* inData) {
 
     bool loaded = gModels.load(key, path);
 
-    if (loaded && filename != nullptr) {
+    if (loaded && strlen(filename) > 0) {
       gModels.get(key)->dumpInfo(filename);
     }
     return true;
@@ -69,7 +72,7 @@ public:
   int settingIdx;
   const char* valueString;
 
-  static SetCmdData* nrtalloc(InterfaceTable* ft, sc_msg_iter* args) {
+  static SetCmdData* alloc(sc_msg_iter* args, InterfaceTable* ft, World* world=nullptr) {
 
     int modelIdx = args->geti(-1);
     int settingIdx = args->geti(-1);
@@ -82,7 +85,7 @@ public:
     size_t dataSize = sizeof(SetCmdData)
       + strlen(valueString) + 1;
 
-    SetCmdData* cmdData = (SetCmdData*) NRTAlloc(dataSize);
+    SetCmdData* cmdData = (SetCmdData*) (world ? RTAlloc(world, dataSize) : NRTAlloc(dataSize));
     if (cmdData == nullptr) {
       Print("SetCmdData: alloc failed.\n");
       return nullptr;
@@ -114,9 +117,10 @@ struct QueryCmdData {
 public:
   int modelIdx;
 
-  static QueryCmdData* nrtalloc(InterfaceTable* ft, sc_msg_iter* args) {
+  static QueryCmdData* alloc(sc_msg_iter* args, InterfaceTable* ft, World* world=nullptr) {
     int modelIdx = args->geti(-1);
-    QueryCmdData* cmdData = (QueryCmdData*) NRTAlloc(sizeof(QueryCmdData));
+    auto dataSize = sizeof(QueryCmdData);
+    QueryCmdData* cmdData = (QueryCmdData*) (world ? RTAlloc(world, dataSize) : NRTAlloc(dataSize));
     if (cmdData == nullptr) {
       Print("QueryCmdData: alloc failed.\n");
       return nullptr;
