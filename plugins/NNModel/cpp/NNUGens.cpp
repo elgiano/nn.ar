@@ -22,11 +22,11 @@ NNModel::NNModel(): m_backend(), m_methods() {
 NNModel* NNModelRegistry::get(std::string key, bool warn) {
   auto model = models[key];
   if (model == nullptr) {
-    if (warn) Print("NNModel: %s not found\n", key.c_str());
+    if (warn) Print("NNBackend: %s not found\n", key.c_str());
     return nullptr;
   }
   if (!model->is_loaded()) {
-    if (warn) Print("NNModel: %s not loaded yet\n", key.c_str());
+    if (warn) Print("NNBackend: %s not loaded yet\n", key.c_str());
   }
   return model;
 }
@@ -35,12 +35,12 @@ NNModel* NNModelRegistry::get(unsigned short idx, bool warn) {
   try {
     auto model = modelsByIdx.at(idx);
     if (!model->is_loaded()) {
-      if (warn) Print("NNModel: idx %d not loaded yet\n", idx);
+      if (warn) Print("NNBackend: idx %d not loaded yet\n", idx);
     }
     return model;
   }
   catch (const std::out_of_range&) {
-    if (warn) Print("NNModel: idx %d not found\n", idx);
+    if (warn) Print("NNBackend: idx %d not found\n", idx);
     return nullptr;
   }
 }
@@ -73,10 +73,10 @@ bool NNModelRegistry::load(std::string key, const char* path) {
 }
 
 bool NNModel::load(const char* path) {
-  Print("NNModel: loading %s\n", path);
+  Print("NNBackend: loading %s\n", path);
   bool loaded = m_backend.load(path) == 0;
   if (loaded) {
-    Print("NNModel: loaded %s\n", path);
+    Print("NNBackend: loaded %s\n", path);
   } else {
     Print("ERROR: NNModel can't load model %s\n", path);
     return false;
@@ -111,7 +111,7 @@ bool NNModel::set(std::string name, std::string value, bool warn) {
   try {
     m_backend.set_attribute(name, args);
   } catch (...) {
-    if (warn) Print("NNModel: can't set attribute %s\n", name.c_str());
+    if (warn) Print("NNBackend: can't set attribute %s\n", name.c_str());
     return false;
   }
   return true;
@@ -141,11 +141,11 @@ float NNModel::get(std::string name, bool warn) {
       return static_cast<float>(value.toDouble());
     }
     else {
-      if (warn) Print("NNModel: attribute '%s' has unsupported type.\n", name.c_str());
+      if (warn) Print("NNBackend: attribute '%s' has unsupported type.\n", name.c_str());
       return 0;
     }
   } catch (...) {
-    if (warn) Print("NNModel: can't get attribute %s\n", name.c_str());
+    if (warn) Print("NNBackend: can't get attribute %s\n", name.c_str());
     return 0;
   }
 }
@@ -168,7 +168,7 @@ NNModelMethod* NNModel::getMethod(unsigned short idx, bool warn) {
   try {
     return &m_methods.at(idx);
   } catch (const std::out_of_range&) {
-    if (warn) Print("NNModel: method %d not found\n", idx);
+    if (warn) Print("NNBackend: method %d not found\n", idx);
     return nullptr;
   }
 }
@@ -177,7 +177,7 @@ std::string NNModel::getSetting(unsigned short idx, bool warn) {
   try {
     return m_settings.at(idx);
   } catch (const std::out_of_range&) {
-    if (warn) Print("NNModel: setting %d not found\n", idx);
+    if (warn) Print("NNBackend: setting %d not found\n", idx);
     return nullptr;
   }
 }

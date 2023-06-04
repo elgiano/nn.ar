@@ -100,12 +100,13 @@ NNModel {
 	}
 
 	describe {
-		"NNModel(%)".format(key).postln;
+		"\n*** NNModel(%)".format(key).postln;
 		"path: %".format(path).postln;
 		"minBufferSize: %".format(minBufferSize).postln;
 		methods.do { |m|
 			"- method %: % ins, % outs".format(m.name, m.numInputs, m.numOutputs).postln;
-		}
+		};
+		"".postln;
 	}
 
 	printOn { |stream|
