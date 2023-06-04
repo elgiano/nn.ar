@@ -1,13 +1,72 @@
 # NN
 
-Author: Gianluca Elia
+[nn_tilde](https://github.com/acids-rave/nn_tilde) adaptation for SuperCollider: load torchscripts for real-time audio processing.
 
-Load torchscripts
+### Description
+It has most features of nn_tilde:
+- interface for any available model method (e.g. forward, encode, decode)
+- interface for getting and setting model attributes
+- processes real-time at different buffer sizes, on separate threads
+- loads models asynchronously on scsynth
+
+- tested so far only with [RAVE](https://github.com/acids-rave/rave) (v1 and v2) and [msprior](https://github.com/acids-rave/nn_tilde) models
+- tested so far only on CPU, on linux
+
+```supercollider
+// Example:
+s.waitForBoot {
+    // when in a Routine, this method waits until the model has loaded
+    NNModel.load(\rave, "~/rave/ravemodel.ts");
+    // when model has loaded, print a description of all methods and parameters
+    NNModel(\rave).describe;
+}
+
+NNModel(\rave).methods;
+// -> NNModelMethod(forward: 1 ins, 1 outs), NNModelMethod(encode: 1 ins, 8 outs), ...
+
+
+// play
+{ NN.ar(\rave, \forward, WhiteNoise.ar) }.play
+
+NNModel.load(\msprior, "~/rave/msprior.ts");
+
+{
+    var in, latent, modLatent, prior, resynth;
+    
+    in = SoundIn.ar();
+    latent = NN.ar(\rave, \encode, 2048, in);
+    modLatent = latent.collect { |l|
+        l + LFNoise1.ar(MouseY.kr.exprange(0.1, 30)).range(-0.5, 0.5)
+    };
+    prior = NN.ar(\msprior, \forward, 2048, latent);
+    resynth = NN.ar(\rave, \decode, 2048, prior.drop(-1);
+
+    resynth
+}.play;
+
+NNModel(\msprior).settings;
+// -> [ listen, temperature, learn_context, reset ]
+
+// set via command
+NNModel(\rave).set(\listen, false);
+NNModel(\rave).set(\listen, true);
+// set via UGen
+{
+    var trig = Dust.kr(MouseY.kr.exprange(0.1, 10));
+    NNSet.kr(\msprior, \listen, ToggleFF.kr(trig));
+}.play;
+
+// get parameter
+NNModel(\msprior).get(\temperature)
+{ NNGet.kr(\msprior, \temperature).poll }.play;
+```
+
 
 ### Requirements
 
 - CMake >= 3.5
 - SuperCollider source code
+- [libtorch](https://pytorch.org/cppdocs/installing.html)
 
 ### Building
 
@@ -32,7 +91,4 @@ it's not: add the option `-DSC_PATH=/path/to/sc/source`.
 
 ### Developing
 
-Use the command in `regenerate` to update CMakeLists.txt when you add or remove files from the
-project. You don't need to run it if you only change the contents of existing files. You may need to
-edit the command if you add, remove, or rename plugins, to match the new plugin paths. Run the
-script with `--help` to see all available options.
+The usual `regenerate` command was disabled because `CmakeLists.txt` needed to be manually edited to include libtorch.
