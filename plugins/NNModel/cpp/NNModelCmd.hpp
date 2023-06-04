@@ -116,16 +116,22 @@ bool doSetMsg(World* world, void* inData) {
 struct QueryCmdData {
 public:
   int modelIdx;
+  const char* outFile;
 
   static QueryCmdData* alloc(sc_msg_iter* args, InterfaceTable* ft, World* world=nullptr) {
     int modelIdx = args->geti(-1);
-    auto dataSize = sizeof(QueryCmdData);
+    const char* outFile = args->gets("");
+
+    auto dataSize = sizeof(QueryCmdData) + strlen(outFile) + 1;
     QueryCmdData* cmdData = (QueryCmdData*) (world ? RTAlloc(world, dataSize) : NRTAlloc(dataSize));
     if (cmdData == nullptr) {
       Print("QueryCmdData: alloc failed.\n");
       return nullptr;
     }
     cmdData->modelIdx = modelIdx;
+    char* data = (char*) (cmdData + 1);
+    cmdData->outFile = copyStrToBuf(&data, outFile);
+    
     return cmdData;
   }
 
@@ -134,13 +140,16 @@ public:
 bool doQueryMsg(World* world, void* inData) {
   QueryCmdData* data = (QueryCmdData*)inData;
   int modelIdx = data->modelIdx;
+  const char* outFile = data->outFile;
+  bool writeToFile = strlen(outFile) > 0;
   if (modelIdx < 0) {
-    gModels.printAllInfo();
+    if (writeToFile) { gModels.dumpAllInfo(outFile); } else { gModels.printAllInfo(); }
     return true;
   }
   const auto model = gModels.get(modelIdx, true);
-  if (model)
-    model->printInfo();
+  if (model) {
+    if (writeToFile) model->dumpInfo(outFile); else model->printInfo();
+  }
   return true;
 }
 

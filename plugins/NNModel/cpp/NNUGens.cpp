@@ -16,7 +16,7 @@ static InterfaceTable* ft;
 namespace NN {
 
 
-NNModel::NNModel(): m_backend(), m_methods() {
+NNModel::NNModel(): m_backend(), m_methods(), m_path() {
 }
 
 NNModel* NNModelRegistry::get(std::string key, bool warn) {
@@ -186,7 +186,7 @@ std::string NNModel::getSetting(unsigned short idx, bool warn) {
 
 void NNModel::streamInfo(std::ostream& stream) {
   stream << "- idx: " << m_idx
-    << "\n  modelPath: " << m_path
+    << "\n  modelPath: " << m_path.c_str()
     << "\n  minBufferSize: " << m_higherRatio
     << "\n  methods:";
   for (auto m: m_methods) {
@@ -219,6 +219,23 @@ bool NNModel::dumpInfo(const char* filename) {
       return false;
     }
     streamInfo(file);
+    file.close();
+    return true;
+  }
+  catch (...) {
+    Print("ERROR: NNBackend couldn't dump info to file %s\n", filename);
+    return false;
+  }
+}
+bool NNModelRegistry::dumpAllInfo(const char* filename) {
+  std::ofstream file;
+  try {
+    file.open(filename);
+    if (!file.is_open()) {
+      Print("ERROR: NNBackend couldn't open file %s\n", filename);
+      return false;
+    }
+    streamAllInfo(file);
     file.close();
     return true;
   }

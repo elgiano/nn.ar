@@ -101,6 +101,21 @@ NNModel {
 		}
 	}
 
+	*dumpInfoMsg { |modelIdx, outFile|
+		^["/cmd", "/nn_query", modelIdx ? -1, outFile ? ""]
+	}
+	dumpInfoMsg { |outFile| ^this.class.dumpInfoMsg(this.idx, outFile) }
+	*dumpInfo { |outFile, server(Server.default)|
+		forkIfNeeded {
+			server.sync(bundles:[this.dumpInfoMsg(-1, outFile)])		
+		}
+	}
+	dumpInfo { |outFile|
+		forkIfNeeded {
+			server.sync(bundles:[this.dumpInfoMsg(outFile)])		
+		}
+	}
+
 	method { |name|
 		methods ?? { Error("NNModel % has no methods.".format(key)).throw };
 		^methods.detect { |m| m.name == name };

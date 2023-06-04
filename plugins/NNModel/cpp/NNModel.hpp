@@ -26,6 +26,7 @@ public:
   NNModel* get(std::string key, bool warn=true);
   NNModel* get(unsigned short idx, bool warn=true);
   void streamAllInfo(std::ostream& stream);
+  bool dumpAllInfo(const char* filename);
   void printAllInfo();
 
 private:
@@ -62,7 +63,7 @@ public:
     m_backend.perform(inBuffer, outBuffer, n_vec, method, n_batches);
   }
 
-  const char* m_path;
+  std::string m_path;
   unsigned short m_idx;
   std::vector<NNModelMethod> m_methods;
   std::vector<std::string> m_settings;
