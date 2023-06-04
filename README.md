@@ -1,4 +1,4 @@
-# NN
+# `NN.ar()`
 
 [nn_tilde](https://github.com/acids-ircam/nn_tilde) adaptation for SuperCollider: load torchscripts for real-time audio processing.
 
@@ -32,7 +32,7 @@ NNModel.load(\msprior, "~/rave/msprior.ts");
 
 {
     var in, latent, modLatent, prior, resynth;
-    
+
     in = SoundIn.ar();
     latent = NN.ar(\rave, \encode, 2048, in);
     modLatent = latent.collect { |l|
