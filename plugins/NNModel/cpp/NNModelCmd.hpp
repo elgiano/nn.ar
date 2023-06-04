@@ -14,34 +14,33 @@ char* copyStrToBuf(char** buf, const char* str) {
 // /cmd /nn_set str str str
 struct LoadCmdData {
 public:
-  const char* key;
+  int id;
   const char* path;
   const char* filename;
 
   static LoadCmdData* alloc(sc_msg_iter* args, InterfaceTable* ft, World* world=nullptr) {
 
-    const char* key = args->gets();
+    int id = args->geti(-1);
     const char* path = args->gets();
     const char* filename = args->gets("");
 
-    if (key == 0 || path == 0) {
-      Print("Error: LoadCmd needs a key and a path to a .ts file\n");
+    if (path == 0) {
+      Print("Error: nn_load needs a path to a .ts file\n");
       return nullptr;
     }
 
     size_t dataSize = sizeof(LoadCmdData)
-      + strlen(key) + 1
       + strlen(path) + 1
       + strlen(filename) + 1;
 
     LoadCmdData* cmdData = (LoadCmdData*) (world ? RTAlloc(world, dataSize) : NRTAlloc(dataSize));
     if (cmdData == nullptr) {
-      Print("LoadCmdData: alloc failed.\n");
+      Print("nn_load: msg data alloc failed.\n");
       return nullptr;
     }
 
     char* data = (char*) (cmdData + 1);
-    cmdData->key = copyStrToBuf(&data, key);
+    cmdData->id = id;
     cmdData->path = copyStrToBuf(&data, path);
     cmdData->filename = copyStrToBuf(&data, filename);
     return cmdData;
@@ -50,20 +49,6 @@ public:
   LoadCmdData() = delete;
 };
 
-bool doLoadMsg(World* world, void* inData) {
-    std::cout << "nn_load: stage 2" << std::endl;
-    LoadCmdData* data = (LoadCmdData*)inData;
-    const char* key = data->key;           //.string;
-    const char* path = data->path;         //.string;
-    const char* filename = data->filename; //.string;
-
-    bool loaded = gModels.load(key, path);
-
-    if (loaded && strlen(filename) > 0) {
-      gModels.get(key)->dumpInfo(filename);
-    }
-    return true;
-}
 
 // /cmd /nn_set int int str
 struct SetCmdData {
@@ -100,17 +85,6 @@ public:
   SetCmdData() = delete;
 };
 
-bool doSetMsg(World* world, void* inData) {
-  SetCmdData* data = (SetCmdData*)inData;
-  int modelIdx = data->modelIdx;
-  int settingIdx = data->settingIdx;
-  std::string valueString = data->valueString;
-
-  auto model = gModels.get(modelIdx);
-  if (!model) return true;
-  model->set(settingIdx, valueString);
-  return true;
-}
 
 // /cmd /nn_query str
 struct QueryCmdData {
@@ -137,20 +111,5 @@ public:
 
   QueryCmdData() = delete;
 };
-bool doQueryMsg(World* world, void* inData) {
-  QueryCmdData* data = (QueryCmdData*)inData;
-  int modelIdx = data->modelIdx;
-  const char* outFile = data->outFile;
-  bool writeToFile = strlen(outFile) > 0;
-  if (modelIdx < 0) {
-    if (writeToFile) { gModels.dumpAllInfo(outFile); } else { gModels.printAllInfo(); }
-    return true;
-  }
-  const auto model = gModels.get(modelIdx, true);
-  if (model) {
-    if (writeToFile) model->dumpInfo(outFile); else model->printInfo();
-  }
-  return true;
-}
 
 }

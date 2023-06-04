@@ -2,7 +2,6 @@
 
 #pragma once
 #include "backend.h"
-#include "SC_PlugIn.h"
 #include <ostream>
 
 namespace NN {
@@ -14,29 +13,6 @@ public:
   std::string name;
   int inDim, inRatio, outDim, outRatio;
 };
-
-class NNModel;
-
-class NNModelRegistry {
-public:
-  NNModelRegistry(): models(), modelsByIdx(), modelCount(0) {}
-  // load model from .ts file
-  bool load(std::string key, const char* path);
-  // get stored model
-  NNModel* get(std::string key, bool warn=true);
-  NNModel* get(unsigned short idx, bool warn=true);
-  void streamAllInfo(std::ostream& stream);
-  bool dumpAllInfo(const char* filename);
-  void printAllInfo();
-
-private:
-  std::map<std::string, NNModel*> models;
-  std::vector<NNModel*> modelsByIdx;
-  unsigned short modelCount;
-
-};
-// global model store, by key and index
-static NNModelRegistry gModels;
 
 class NNModel {
 public:
@@ -72,6 +48,25 @@ public:
 private:
 
   Backend m_backend;
+};
+
+class NNModelRegistry {
+public:
+  NNModelRegistry(): models(), modelCount(0) {}
+  // load model from .ts file
+  NNModel* load(const char* path);
+  NNModel* load(unsigned short id, const char* path);
+  // get stored model
+  NNModel* get(unsigned short id, bool warn=true);
+  void streamAllInfo(std::ostream& stream);
+  bool dumpAllInfo(const char* filename);
+  void printAllInfo();
+
+private:
+  unsigned short getNextId();
+  std::map<unsigned short, NNModel*> models;
+  unsigned short modelCount;
+
 };
 
 } // namespace RAVE

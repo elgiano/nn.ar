@@ -1,7 +1,7 @@
 // NNUGens.cpp
 
-#include "NNUGens.hpp"
 #include "NNModel.hpp"
+#include "NNUGens.hpp"
 #include "NNModelCmd.hpp"
 #include "rt_circular_buffer.h"
 #include "backend.h"
@@ -13,36 +13,36 @@
 
 static InterfaceTable* ft;
 
+// global model store, by numeric id
+static NN::NNModelRegistry gModels;
 namespace NN {
 
 
 NNModel::NNModel(): m_backend(), m_methods(), m_path() {
 }
 
-NNModel* NNModelRegistry::get(std::string key, bool warn) {
-  auto model = models[key];
-  if (model == nullptr) {
-    if (warn) Print("NNBackend: %s not found\n", key.c_str());
-    return nullptr;
+unsigned short NNModelRegistry::getNextId() {
+  unsigned short id = modelCount;
+  while(models[id] != nullptr) id++;
+  return id;
+};
+
+NNModel* NNModelRegistry::get(unsigned short id, bool warn) {
+  NNModel* model;
+  bool found = false;
+  try {
+    model = models.at(id);
+    found = model != nullptr;
+  } catch(...) {
+    if (warn) Print("NNBackend: id %d not found\n", id);
+    found = false;
   }
+
+  if (!found) return nullptr;
   if (!model->is_loaded()) {
-    if (warn) Print("NNBackend: %s not loaded yet\n", key.c_str());
+    if (warn) Print("NNBackend: id %d not loaded yet\n", id);
   }
   return model;
-}
-
-NNModel* NNModelRegistry::get(unsigned short idx, bool warn) {
-  try {
-    auto model = modelsByIdx.at(idx);
-    if (!model->is_loaded()) {
-      if (warn) Print("NNBackend: idx %d not loaded yet\n", idx);
-    }
-    return model;
-  }
-  catch (const std::out_of_range&) {
-    if (warn) Print("NNBackend: idx %d not found\n", idx);
-    return nullptr;
-  }
 }
 void NNModelRegistry::streamAllInfo(std::ostream& dest) {
   for (const auto kv: models) {
@@ -54,22 +54,31 @@ void NNModelRegistry::printAllInfo() {
   std::cout << std::endl;
 }
 
-bool NNModelRegistry::load(std::string key, const char* path) {
-  auto model = get(key, false);
+NNModel* NNModelRegistry::load(const char* path) {
+  unsigned short id = getNextId();
+  return load(id, path);
+}
+NNModel* NNModelRegistry::load(unsigned short id, const char* path) {
+  auto model = get(id, false);
   if (model != nullptr) {
     if (model->m_path == path) {
-      Print("NNModel[%s]: already loaded %s\n", key.c_str(), path);
-      return true;
+      Print("NNBackend: model %d already loaded %s\n", id, path);
+      return model;
     } else {
-      return model->load(path);
+      return model->load(path) ? model : nullptr;
     }
   }
 
   model = new NNModel();
-  models[key] = model;
-  model->m_idx = modelCount++;
-  modelsByIdx.push_back(model);
-  return model->load(path);
+  if (model->load(path)) {
+    models[id] = model;
+    model->m_idx = id;
+    modelCount++;
+    return model;
+  } else {
+    /* delete model; */
+    return nullptr;
+  }
 }
 
 bool NNModel::load(const char* path) {
@@ -469,6 +478,51 @@ void NNGet::next(int nSamples) {
     return;
   };
   out0(0) = m_model->get(m_setting, true);
+}
+
+// CMDS
+
+bool doLoadMsg(World* world, void* inData) {
+  LoadCmdData* data = (LoadCmdData*)inData;
+  int id = data->id;
+  const char* path = data->path;
+  const char* filename = data->filename;
+
+  auto model = (id == -1) ? gModels.load(path) : gModels.load(id, path);
+
+  if (model != nullptr && strlen(filename) > 0) {
+    model->dumpInfo(filename);
+  }
+  return true;
+}
+
+bool doSetMsg(World* world, void* inData) {
+  SetCmdData* data = (SetCmdData*)inData;
+  int modelIdx = data->modelIdx;
+  int settingIdx = data->settingIdx;
+  std::string valueString = data->valueString;
+
+  auto model = gModels.get(modelIdx);
+  if (!model) return true;
+  model->set(settingIdx, valueString);
+  return true;
+}
+
+// CMDS
+bool doQueryMsg(World* world, void* inData) {
+  QueryCmdData* data = (QueryCmdData*)inData;
+  int modelIdx = data->modelIdx;
+  const char* outFile = data->outFile;
+  bool writeToFile = strlen(outFile) > 0;
+  if (modelIdx < 0) {
+    if (writeToFile) { gModels.dumpAllInfo(outFile); } else { gModels.printAllInfo(); }
+    return true;
+  }
+  const auto model = gModels.get(modelIdx, true);
+  if (model) {
+    if (writeToFile) model->dumpInfo(outFile); else model->printInfo();
+  }
+  return true;
 }
 
 } // namespace NN

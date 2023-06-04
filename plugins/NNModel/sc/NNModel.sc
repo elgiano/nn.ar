@@ -10,7 +10,7 @@ NNModel {
 
 	*new { |key| ^this.get(key) }
 
-	*load { |key, path, server(Server.default)|
+	*load { |key, path, id(-1), server(Server.default)|
 		var model = this.get(key);
 		if (path.isKindOf(String).not) {
 			Error("NNModel.load: path needs to be a string, got: %").format(path).throw
@@ -19,19 +19,19 @@ NNModel {
 			model = super.newCopyArgs(server, key);
 			models[key] = model;
 		};
-		model.load(path);
+		model.load(path, id);
 		^model;
 	}
 
-	*loadMsg { |key, path, infoFile|
+	*loadMsg { |id, path, infoFile|
 		path = path.standardizePath;
-		^["/cmd", "/nn_load", key, path, infoFile]
+		^["/cmd", "/nn_load", id, path, infoFile]
 	}
-	loadMsg { |path, infoFile|
-		^this.class.loadMsg(this.key, path, infoFile)
+	loadMsg { |path, id(-1), infoFile|
+		^this.class.loadMsg(id, path, infoFile)
 	}
-	load { |path, infoFile(nil)|
-		var loadMsg, saveInfo = infoFile.notNil;
+	load { |path, id(-1)|
+		var loadMsg, infoFile;
 		path = path.standardizePath;
 		if (server.serverRunning.not) {
 			Error("server not running").throw
@@ -43,7 +43,7 @@ NNModel {
 		if (infoFile.isNil) {
 			infoFile = PathName.tmp +/+ "nn-sc-%.yaml".format(UniqueID.next())
 		};
-		loadMsg = this.loadMsg(path, infoFile);
+		loadMsg = this.loadMsg(path, id, infoFile);
 
 		forkIfNeeded {
 			var yaml;
@@ -54,9 +54,7 @@ NNModel {
 			} {
 				yaml = File.readAllString(infoFile).parseYAML[0];
 				this.prParseInfoYAML(yaml);
-				if (saveInfo.not) {
-					File.delete(infoFile);
-				};
+				File.delete(infoFile);
 			}
 		}
 	}
