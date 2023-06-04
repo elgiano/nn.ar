@@ -1,4 +1,4 @@
-// NNModel.h
+// NNModel.hpp
 
 #pragma once
 #include "backend.h"

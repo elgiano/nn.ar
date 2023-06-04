@@ -1,16 +1,15 @@
-// NNModel.cpp
+// NNUGens.cpp
 
+#include "NNUGens.hpp"
 #include "NNModel.hpp"
-#include "NNUGen.hpp"
 #include "NNModelCmd.hpp"
+#include "rt_circular_buffer.h"
+#include "backend.h"
 #include "SC_InterfaceTable.h"
 #include "SC_PlugIn.hpp"
-#include "backend.h"
-#include "rt_circular_buffer.h"
 #include <cstdio>
 #include <fstream>
 #include <ostream>
-#include <stdexcept>
 
 static InterfaceTable* ft;
 
@@ -226,7 +225,7 @@ bool NNModel::dumpInfo(const char* filename) {
     file.close();
     return true;
   }
-  catch (const std::exception&) {
+  catch (...) {
     Print("ERROR: NNModel couldn't dump info to file %s\n", filename);
     return false;
   }

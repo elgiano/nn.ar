@@ -1,12 +1,17 @@
+/*
+* adapted for SuperCollider from nn_tilde circular_buffer
+* CircularBufferCtrl operates on an already allocated buffer
+* so that it can be allocated via RTAlloc on the real-time memory
+*/
 #pragma once
 #include "SC_World.h"
 #include <memory>
 #include <iostream>
 
 namespace NN {
-template <class in_type, class out_type> class RTCircularBuffer {
+template <class in_type, class out_type> class RingBufCtrl {
 public:
-  RTCircularBuffer(out_type* buf, size_t size): _buffer(buf), _max_size(size) {
+  RingBufCtrl(out_type* buf, size_t size): _buffer(buf), _max_size(size) {
   };
   out_type* getBuffer() { return _buffer; }
   bool empty() { 

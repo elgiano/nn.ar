@@ -1,4 +1,4 @@
-// NNUGen.hpp
+// NNUGens.hpp
 
 #pragma once
 #include "NNModel.hpp"
@@ -7,7 +7,7 @@
 
 namespace NN {
 
-using RingBuf = RTCircularBuffer<float, float>;
+using RingBuf = RingBufCtrl<float, float>;
 
 class NN : public SCUnit {
 public:

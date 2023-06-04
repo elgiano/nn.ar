@@ -69,16 +69,20 @@ find_package(Torch REQUIRED) # find torch
 # Begin target NN
 
 set(NN_cpp_files
-    plugins/NNModel/cpp/NNModel.cpp
+    plugins/NNModel/cpp/NNUGens.cpp
     plugins/NNModel/cpp/backend.cpp
     plugins/NNModel/cpp/parsing_utils.cpp
 )
 set(NN_sc_files
     plugins/NNModel/sc/NNModel.sc
+    plugins/NNModel/sc/NNUGens.sc
 )
 set(NN_schelp_files
-    plugins/NNModel/sc/NNModel.schelp
-    plugins/NNModel/sc/NN.schelp
+    plugins/NNModel/schelp/NNModel.schelp
+    plugins/NNModel/schelp/NNModelMethod.schelp
+    plugins/NNModel/schelp/NN.schelp
+    plugins/NNModel/schelp/NNGet.schelp
+    plugins/NNModel/schelp/NNSet.schelp
 )
 
 sc_add_server_plugin(
