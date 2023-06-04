@@ -7,7 +7,7 @@
 ####################################################################################################
 # basic project config
 cmake_minimum_required(VERSION 3.12)
-set(project_name "NN")
+set(project_name "nn.ar")
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake_modules ${CMAKE_MODULE_PATH})
 set(CMAKE_CXX_STANDARD 17)
 
@@ -66,18 +66,18 @@ endif()
 find_package(Torch REQUIRED) # find torch
 
 ####################################################################################################
-# Begin target NN
+# Begin target NNUGens
 
-set(NN_cpp_files
+set(NNUGens_cpp_files
     plugins/NNModel/cpp/NNUGens.cpp
     plugins/NNModel/cpp/backend.cpp
     plugins/NNModel/cpp/parsing_utils.cpp
 )
-set(NN_sc_files
+set(NNUGens_sc_files
     plugins/NNModel/sc/NNModel.sc
     plugins/NNModel/sc/NNUGens.sc
 )
-set(NN_schelp_files
+set(NNUGens_schelp_files
     plugins/NNModel/schelp/NNModel.schelp
     plugins/NNModel/schelp/NNModelMethod.schelp
     plugins/NNModel/schelp/NN.schelp
@@ -86,19 +86,19 @@ set(NN_schelp_files
 )
 
 sc_add_server_plugin(
-    "NN/" # desination directory
-    "NN" # target name
-    "${NN_cpp_files}"
-    "${NN_sc_files}"
-    "${NN_schelp_files}"
+    "nn.ar/" # desination directory
+    "NNUGens" # target name
+    "${NNUGens_cpp_files}"
+    "${NNUGens_sc_files}"
+    "${NNUGens_schelp_files}"
 )
 
 
 if(SCSYNTH)
-  target_link_libraries(NN_scsynth "${TORCH_LIBRARIES}")
+  target_link_libraries(NNUGens_scsynth "${TORCH_LIBRARIES}")
 endif()
 if(SUPERNOVA)
-  target_link_libraries(NN_supernova "${TORCH_LIBRARIES}")
+  target_link_libraries(NNUGens_supernova "${TORCH_LIBRARIES}")
 endif()
 
 # End target NNModel
