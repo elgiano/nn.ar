@@ -1,6 +1,6 @@
 # NN
 
-[nn_tilde](https://github.com/acids-rave/nn_tilde) adaptation for SuperCollider: load torchscripts for real-time audio processing.
+[nn_tilde](https://github.com/acids-ircam/nn_tilde) adaptation for SuperCollider: load torchscripts for real-time audio processing.
 
 ### Description
 It has most features of nn_tilde:
@@ -9,7 +9,7 @@ It has most features of nn_tilde:
 - processes real-time at different buffer sizes, on separate threads
 - loads models asynchronously on scsynth
 
-- tested so far only with [RAVE](https://github.com/acids-rave/rave) (v1 and v2) and [msprior](https://github.com/acids-rave/nn_tilde) models
+- tested so far only with [RAVE](https://github.com/acids-ircam/rave) (v1 and v2) and [msprior](https://github.com/caillonantoine/msprior) models
 - tested so far only on CPU, on linux
 
 ```supercollider
