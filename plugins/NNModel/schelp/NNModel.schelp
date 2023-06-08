@@ -5,9 +5,6 @@ categories:: UGens>TODO
 
 description::
 
-Load torchscripts on scsynth. Tested with RAVE (v1 and v2) and msprior. 
-Models are loaded asynchronously on the server, and stored in a global
-dictionary so that they can then be accessed by key.
 
 On sclang, NNModel provides convenience methods to initiate model loading on the
 server, and to gather model descriptions (e.g. available methods and settable
@@ -22,13 +19,22 @@ Sends a message to the server to load a torchscript file, and gathers model
 informations as the server returns them. This method should be use to initialize
 a new NNModel object.
 
-argument::key
-a link::Classes/Symbol:: to identify this model object, and to access it after
-it's loaded.
-
 argument::path
 the file path of the torchscript file to load. The path is standardized with
 link::Classes/String:-standardizePath:: internally.
+
+argument::id
+a number that identifies this model on the server. Pass code::-1:: (default) to
+let the server set this number automatically.
+
+argument::server
+the server that should load this file. Defaults to
+link::Classes/Server#*default::. Note: other servers are not currently
+supported.
+
+argument::action
+function called after the model and its info are loaded. The callback function
+is given the model as argument.
 
 method::new, get
 Returns a previously loaded NNModel. These methods can't be used to create new

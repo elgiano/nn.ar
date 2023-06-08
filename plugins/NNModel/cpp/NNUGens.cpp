@@ -309,6 +309,8 @@ NN::NN():
   }
 
   /* Print("NN: Ctor done\n"); */
+  // don't use external thread on NRT
+  if (!mWorld->mRealTime) m_useThread = false;
   m_enabled = true;
   mCalcFunc = make_calc_function<NN, &NN::next>();
   clearOutputs(1);

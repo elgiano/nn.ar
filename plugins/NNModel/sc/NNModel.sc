@@ -1,37 +1,134 @@
-NNModel {
+NN {
 
-	classvar models;
-	var <server, <key;
-	var <idx, <path, <minBufferSize, <methods, <settings;
+	classvar rtModelStore, rtModelsInfo;
+	*initClass {
+    rtModelStore = IdentityDictionary[];
+    // store model info by path
+    rtModelsInfo = IdentityDictionary[]
+	}
 
-	*initClass { models = IdentityDictionary[] }
+  *isNRT { ^currentEnvironment[\nn_nrt].notNil }
+	*modelStore { ^if(this.isNRT) { this.nrtModelStore } { rtModelStore } }
+	*models { ^this.modelStore.values }
+	*model { |key| ^this.modelStore[key] }
+  *modelsInfo { ^if(this.isNRT) { this.nrtModelsInfo } { rtModelsInfo }  }
 
-	*get { |key| ^models[key.asSymbol] }
+  *cacheInfo { |info|
+		var path = info.path.asSymbol;
+    if (this.modelsInfo[path].notNil) {
+      "NN: overriding cached info for '%'".format(path).warn;
+    };
+    this.modelsInfo[path] = info;
+  }
+	*getCachedInfo { |path| ^this.modelsInfo[path.standardizePath.asSymbol] }
 
-	*new { |key| ^this.get(key) }
+  *nrtModelStore {
+    if (this.isNRT.not) { ^nil };
+    ^currentEnvironment[\nn_nrt].models;
+  }
 
-	*load { |key, path, id(-1), server(Server.default)|
-		var model = this.get(key);
-		if (path.isKindOf(String).not) {
-			Error("NNModel.load: path needs to be a string, got: %").format(path).throw
+  *nrtModelsInfo {
+    if (this.isNRT.not) { ^nil };
+    ^currentEnvironment[\nn_nrt].modelsInfo;
+  }
+
+  *nextModelID {
+    if (this.isNRT.not) { ^nil };
+    ^currentEnvironment[\nn_nrt].modelAllocator.alloc;
+  }
+
+	*nrt { |infoFile, fn|
+		^Environment[\nn_nrt -> (
+      modelAllocator: ContiguousBlockAllocator(1024),
+      modelsInfo: IdentityDictionary[],
+      models: IdentityDictionary[]
+    )].use { 
+      NN.readInfo(infoFile);
+      Server.default.makeBundle(false, fn)
+    };	
+	}
+
+  *load { |key, path, id(-1), server(Server.default), action|
+    var model = this.model(key);
+    if (path.isKindOf(String).not) {
+      Error("NN.load: path needs to be a string, got: %").format(path).throw
+    };
+    if (model.isNil) {
+      if (this.isNRT) {
+        var info =  this.getCachedInfo(path) ?? {
+          Error("NN.load (nrt): model info not found for %".format(path)).throw;
+        };
+        model = NNModel.fromInfo(info, this.nextModelID);
+      } {
+        model = NNModel.load(path, id, server, action);
+      };
+      this.modelStore.put(key, model);
+    };
+		if (this.isNRT) {
+			server.sendMsg(*model.loadMsg.postln);
+		}
+    ^model;
+  }
+	
+	*readInfo { |infoFile|
+		if (File.exists(infoFile).not) {
+			Error("NNModel: can't load info file '%'".format(infoFile)).throw;
+		} {
+			var yaml = File.readAllString(infoFile).parseYAML;
+			var models = yaml.collect { |modelInfo|
+				var info = NNModelInfo.fromDict(modelInfo);
+        this.cacheInfo(info);
+			};
+		}
+	}
+
+	// NN(\model) -> NNModel
+	// NN(\model, \method) -> NNModelMethod
+	*new { |key, methodName|
+		var model = this.model(key) ?? { 
+			Error("NNModel: model % not found".format(key)).throw;
 		};
-		model ?? {
-			model = super.newCopyArgs(server, key);
-			models[key] = model;
+		if (methodName.isNil) { ^model };
+		^model.method(methodName).postln ?? {
+			Error("NNModel(%): method % not found".format(key, methodName)).throw
 		};
-		model.load(path, id);
-		^model;
+	}
+
+	*dumpInfo { |outFile, server(Server.default)|
+		forkIfNeeded {
+			server.sync(bundles:[this.dumpInfoMsg(-1, outFile)])		
+		}
 	}
 
 	*loadMsg { |id, path, infoFile|
 		path = path.standardizePath;
 		^["/cmd", "/nn_load", id, path, infoFile]
 	}
-	loadMsg { |path, id(-1), infoFile|
-		^this.class.loadMsg(id, path, infoFile)
+	*setMsg { |modelIdx, settingIdx, value|
+		^["/cmd", "/nn_set", modelIdx, settingIdx, value.asString]
 	}
-	load { |path, id(-1)|
-		var loadMsg, infoFile;
+	*dumpInfoMsg { |modelIdx, outFile|
+		^["/cmd", "/nn_query", modelIdx ? -1, outFile ? ""]
+	}
+
+	*keyForModel { |model| ^this.modelStore.findKeyForValue(model) }
+}
+
+// NNModel can be constructed only:
+// - *load: by loading a model on the server
+// - *read: by reading an info file (for NRT)
+
+NNModel {
+
+	var <server, <path, <idx, <info, <methods;
+
+	*new { ^nil }
+
+  minBufferSize { ^if (info.isNil, nil, info.minBufferSize) }
+  settings { ^if(info.isNil, nil, info.settings) }
+
+	*load { |path, id(-1), server(Server.default), action|
+		var loadMsg, infoFile, model;
 		path = path.standardizePath;
 		if (server.serverRunning.not) {
 			Error("server not running").throw
@@ -43,117 +140,157 @@ NNModel {
 		if (infoFile.isNil) {
 			infoFile = PathName.tmp +/+ "nn-sc-%.yaml".format(UniqueID.next())
 		};
-		loadMsg = this.loadMsg(path, id, infoFile);
+		loadMsg = NN.loadMsg(id, path, infoFile);
 
-		forkIfNeeded {
-			var yaml;
-			server.sync(bundles: [loadMsg]);
-			// server writes info file: read it
-			if (File.exists(infoFile).not) {
-				error("NNModel: can't load info file '%'".format(infoFile));
-			} {
-				yaml = File.readAllString(infoFile).parseYAML[0];
-				this.prParseInfoYAML(yaml);
-				File.delete(infoFile);
-			}
-		}
-	}
+		model = super.newCopyArgs(server);
 
-	*ar { |key, methodName, bufferSize, inputs|
-		var model = this.get(key) ?? {
-			Error("NNModel: model % not found".format(key)).throw;
-		};
-		var method = model.method(methodName) ?? { 
-			Error("NNModel(%): method % not found".format(key, methodName)).throw
-		};
-		inputs = inputs.asArray;
-		if (inputs.size != method.numInputs) {
-			Error("NNModel(%): method % has % inputs, but was given %."
-				.format(model.key, methodName, method.numInputs, inputs.size)).throw
-		};
-		^NNUGen.ar(model.idx, method.idx, bufferSize, method.numOutputs, inputs)
+    forkIfNeeded {
+      server.sync(bundles: [loadMsg]);
+      // server writes info file: read it
+      protect { 
+        model.initFromFile(infoFile);
+        action.(model)
+      } {
+        File.delete(infoFile);
+      }
+    };
+
+		^model;
 	}
 
-	*setMsg { |modelIdx, settingIdx, value|
-		^["/cmd", "/nn_set", modelIdx, settingIdx, value.asString]
+  initFromFile { |infoFile|
+    var info = NNModelInfo.fromFile(infoFile);
+    this.initFromInfo(info);
+    NN.cacheInfo(info);
+  }
+  initFromInfo { |infoObj, overrideId|
+    info = infoObj;
+    path = info.path;
+    idx = overrideId ? info.idx;
+    methods = info.methods.collect { |m| m.copyForModel(this) }
+  }
+	
+	*read { |infoFile, server(Server.default)|
+		^super.newCopyArgs(server).initFromFile(infoFile);
 	}
-	setMsg { |settingName, value|
-		var settingIdx = settings.indexOf(settingName.asSymbol);
-		settingIdx ?? {
-			Error("NNModel(%): setting % not found. Settings: %"
-				.format(this.key, settingName, settings)).throw;
-		};
-		^this.class.setMsg(this.idx, settingIdx, value)
+	*fromInfo { |info, overrideId, server(Server.default)|
+		^super.newCopyArgs(server).initFromInfo(info, overrideId);
 	}
-	set { |settingName, value|
-		var msg = this.setMsg(settingName, value);
-		if (server.serverRunning.not) { Error("server not running").throw };
-		forkIfNeeded { server.sync(bundles: [msg]) };
+
+	loadMsg { |newPath, infoFile|
+		^NN.loadMsg(idx, newPath ? path, infoFile)
 	}
 
 	get { |settingName, action|
 		{
-			NNGet.kr(this.key, settingName)
+			NNGet.kr(this.idx, settingName)
 		}.loadToFloatArray(server.options.blockSize / server.sampleRate, server) { |v|
 			action.(v.last)
 		}
 	}
 
-	*dumpInfoMsg { |modelIdx, outFile|
-		^["/cmd", "/nn_query", modelIdx ? -1, outFile ? ""]
+	setMsg { |settingName, value|
+		var settingIdx = this.settings.indexOf(settingName.asSymbol);
+		settingIdx ?? {
+			Error("NNModel(%): setting % not found. Settings: %"
+				.format(this.key, settingName, this.settings)).throw;
+		};
+		^NN.setMsg(this.idx, settingIdx, value)
 	}
-	dumpInfoMsg { |outFile| ^this.class.dumpInfoMsg(this.idx, outFile) }
-	*dumpInfo { |outFile, server(Server.default)|
-		forkIfNeeded {
-			server.sync(bundles:[this.dumpInfoMsg(-1, outFile)])		
-		}
+	set { |settingName, value|
+		var msg = this.setMsg(settingName, value);
+		this.prErrIfNoServer("dumpInfo");
+		if (server.serverRunning.not) { Error("server not running").throw };
+		forkIfNeeded { server.sync(bundles: [msg]) };
 	}
+
+	dumpInfoMsg { |outFile| ^NN.dumpInfoMsg(this.idx, outFile) }
 	dumpInfo { |outFile|
-		forkIfNeeded {
-			server.sync(bundles:[this.dumpInfoMsg(outFile)])		
-		}
+		var msg = this.dumpInfoMsg(outFile);
+		this.prErrIfNoServer("dumpInfo");
+		if (server.serverRunning.not) { Error("server not running").throw };
+		forkIfNeeded { server.sync(bundles:[msg]) }
 	}
 
 	method { |name|
-		methods ?? { Error("NNModel % has no methods.".format(key)).throw };
-		^methods.detect { |m| m.name == name };
-	}
-
-	prParseInfoYAML { |json|
-		idx = json["idx"].asInteger;
-		path = json["modelPath"];
-		minBufferSize = json["minBufferSize"];
-		methods = json["methods"].collect { |m, n|
-			var name = m["name"].asSymbol;
-			var inDim = m["inDim"].asInteger;
-			var outDim = m["outDim"].asInteger;
-			NNModelMethod(name, n, inDim, outDim);
-		};
-		settings = json["settings"].collect(_.asSymbol) ?? { [] }
+    var method;
+		this.methods ?? { Error("NNModel % has no methods.".format(this.key)).throw };
+		^this.methods.detect { |m| m.name == name };
 	}
 
 	describe {
-		"\n*** NNModel(%)".format(key).postln;
-		"path: %".format(path).postln;
-		"minBufferSize: %".format(minBufferSize).postln;
-		methods.do { |m|
+		"\n*** NNModel(%)".format(this.key).postln;
+		"path: %".format(this.path).postln;
+		"minBufferSize: %".format(this.minBufferSize).postln;
+		this.methods.do { |m|
 			"- method %: % ins, % outs".format(m.name, m.numInputs, m.numOutputs).postln;
 		};
 		"".postln;
 	}
 
 	printOn { |stream|
-		stream << "NNModel(%, %)%".format(key, minBufferSize, methods.collect(_.name));
+		stream << "NNModel(%, %)%".format(this.key, this.minBufferSize, this.methods.collect(_.name));
 	}
+
+	prErrIfNoServer { |funcName|
+		if (server.isNil) {
+			Error("%: NNModel(%) is not bound to a server, can't dumpInfo. Is it a NRT model?"
+				.format(funcName, this.key)).throw
+		};
+	}
+
+	key { ^NN.keyForModel(this) }
+
+}
+
+NNModelInfo {
+	var <idx, <path, <minBufferSize, <methods, <settings;
+  *new {}
+
+  *fromFile { |infoFile|
+    if (File.exists(infoFile).not) {
+      Error("NNModelInfo: can't load info file '%'".format(infoFile)).throw;
+    } {
+      var yaml = File.readAllString(infoFile).parseYAML[0];
+      ^super.new.initFromDict(yaml)
+    }
+  }
+	*fromDict { |infoDict|
+		^super.new.initFromDict(infoDict);
+	}
+  initFromDict { |yaml|
+		idx = yaml["idx"].asInteger;
+		path = yaml["modelPath"];
+		minBufferSize = yaml["minBufferSize"].asInteger;
+		methods = yaml["methods"].collect { |m, n|
+			var name = m["name"].asSymbol;
+			var inDim = m["inDim"].asInteger;
+			var outDim = m["outDim"].asInteger;
+			NNModelMethod(nil, name, n, inDim, outDim);
+		};
+		settings = yaml["settings"].collect(_.asSymbol) ?? { [] }
+  }
 }
 
 NNModelMethod {
-	var <name, <idx, <numInputs, <numOutputs;
+	var <model, <name, <idx, <numInputs, <numOutputs;
 
 	*new { |...args| ^super.newCopyArgs(*args) }
+
+  copyForModel { |model|
+    ^this.class.newCopyArgs(model, name, idx, numInputs, numOutputs)
+  }
+
+	ar { |bufferSize, inputs|
+		inputs = inputs.asArray;
+		if (inputs.size != this.numInputs) {
+			Error("NNModel: method % has % inputs, but was given %."
+				.format(this.name, this.numInputs, inputs.size)).throw
+		};
+		^NNUGen.ar(model.idx, idx, bufferSize, this.numOutputs, inputs)
+	}
+
 	printOn { |stream|
 		stream << "%(%: % in, % out)".format(this.class.name, name, numInputs, numOutputs);
 	}
 }
-
-

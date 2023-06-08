@@ -1,0 +1,74 @@
+class:: NN
+summary:: UGen for playing torchscripts loaded by NNModel
+related:: NNModel, NNModelMethod
+categories:: UGens>Machine Learning
+
+description::
+Perform torchscripts actual computation. It requires models to be loaded by
+link::Classes/NNModel#*load::, it takes a list of audio-rate inputs and gives a
+list of audio-rate outputs.
+Model's buffer size (how many samples to process at once) can be choosed at
+initialization time, but not smaller than the model's
+link::Classes/NNModel#-minBufferSize::
+
+classmethods::
+
+method::ar
+
+argument::key
+The key at which the model was loaded by link::Classes/NNModel#*load::
+argument::methodName
+argument::bufferSize
+the number of samples processed at once by the model. Larger values can make for
+smoother results, at the cost of more latency. It could be set to -1 to
+choose the minimum value available and disable the external computation thread.
+If set to a value less than the model's minBufferSize, it will be set to
+minBufferSize automatically by the server.
+argument::inputs
+an Array of inputs to the model. It must be of the correct size for the selected
+method, which can be seen by using link::Classes/NNModel#-describe:: or
+link::Classes/NNModel#-method::
+
+examples::
+
+code::
+
+(
+s.options.memSize = 2**11;
+s.reboot.waitForBoot {
+	NNModel.load(\rave, "~/rave/model.ts")
+	.describe;
+	NNModel.load(\prior, "~/msprior/prior_model.ts")
+	.describe;
+};
+)
+
+(
+{
+	// drive with a sine wave sound
+	var in = SinOsc.ar(MouseX.kr.exprange(20,20000));
+	// encode input sound to latent space
+	var latent = NN.ar(\rave, \encode, in);
+	// modulate latent space trajectories...
+	var mod = latent.collect {|l| l + LFNoise1.ar(1).range(-1,1) };
+	// resynth
+	NN.ar(\rave, \decode, mod);
+}.play
+)
+
+(
+{
+	var in = WhiteNoise.ar();
+	// encode input sound to latent space
+	var latent = NN.ar(\rave, \encode, in);
+	// generate new latent codes with msprior
+	var prior = NN.ar(\prior, \forward, latent);
+	// resynth latent codes to sound out
+	// dropping the last prior element because msprior returns perplexity as 9th output
+	var resynth = NN.ar(\rave, \decode, prior.drop(-1));
+
+	resynth;
+}.play
+)
+
+::

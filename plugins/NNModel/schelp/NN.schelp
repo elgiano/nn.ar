@@ -1,58 +1,133 @@
 class:: NN
-summary:: UGen for playing torchscripts loaded by NNModel
-related:: NNModel, NNModelMethod
+summary:: Global interface for nn.ar: load torchscripts on scsynth
+related:: NNModel, NNModelMethod, NNUGen
 categories:: UGens>Machine Learning
 
 description::
-Perform torchscripts actual computation. It requires models to be loaded by
-link::Classes/NNModel#*load::, it takes a list of audio-rate inputs and gives a
-list of audio-rate outputs.
-Model's buffer size (how many samples to process at once) can be choosed at
-initialization time, but not smaller than the model's
-link::Classes/NNModel#-minBufferSize::
+Load torchscripts on scsynth. Tested with RAVE (v1 and v2) and msprior. 
+Models are loaded asynchronously on the server, and stored in a global
+dictionary so that they can then be accessed by key.
+
+subsection::Loading models
+Models are loaded with a key to identify them and a path to a torchscript file:
+code::
+	NN.load(\modelName, "/path/to/torchscript.ts")
+::
+The sclang interface instructs the server to load the .ts file, receives and
+stores models' info from the server, and keeps track of which models are loaded.
+Once a model is loaded, and its info received, it becomes possible to interact
+with it by creating UGens and getting/setting attributes.
+
+subsection::Real-time processing
+You can get UGens for each models' method like this:
+code::
+	NN(\modelName, \methodName).ar
+::
+Each NN().ar UGen is specific to a loaded model and method. This is because
+different models and methods require different numbers of inputs and outputs.
+
+subsection::NRT processing
+In order to load and play with models on an NRT server, models' informations
+have to be stored in a file. This method is intended for running NRT servers
+without even booting a real-time one:
+
+code::
+// ask a running server to dump all currently loaded models' info to a file
+NN.dumpInfo("models.yaml");
+
+a = Score([
+	// NN.nrt reads that info file and makes an osc bundle
+	[0.0] ++ NN.nrt("models.yaml") {
+		// load models
+		NN.load(\mrcl, "~/rave/mrcl.ts");
+		NN.load(\pv, "~/rave/rave2/pv_0291790207_streaming.ts");
+		// make synthdefs: use .doSend(s) to get those SynthDefs into the bundle
+		SynthDef(\test) { |out=0|
+			Out.ar(out, NN(\mrcl, \forward).ar(512, WhiteNoise.ar))
+		}.doSend(s);
+	},
+	[0.0, Synth.basicNew(\test).newMsg],
+	[30.0]
+]).recordNRT(
+	outputFilePath: "gen.wav",
+	headerFormat: "wav",
+	sampleFormat: "float",
+	action: { "done".postln }
+)
+::
+
+A second method is available if models are already loaded on a running server.
+The following code creates messages for the NRT server to load all models
+currently loaded on a RT server, with the same indices, so that SynthDefs built
+on the RT server work also on the NRT one.
+
+code::
+Score([
+	[0.0] ++ NN.models.collect(_.loadMsg).postln,
+	[0.0, ["/d_recv", SynthDef(\test) { |out=0|
+		Out.ar(out, NN(\rave, \forward).ar(512, WhiteNoise.ar))
+	}.asBytes]],
+	[0.0, Synth.basicNew(\test).newMsg],
+	[30.0]
+]).recordNRT(
+	outputFilePath: "gen.wav",
+	headerFormat: "wav",
+	sampleFormat: "float",
+	action: { "done".postln }
+)
+::
 
 classmethods::
 
-method::ar
+method:: load
+Sends a message to the server to load a torchscript file, and gathers model
+informations as the server returns them. This method should be use to initialize
+a new link::Classes/NNModel:: object.
 
 argument::key
-The key at which the model was loaded by link::Classes/NNModel#*load::
-argument::methodName
-argument::bufferSize
-the number of samples processed at once by the model. Larger values can make for
-smoother results, at the cost of more latency. It could be set to -1 to
-choose the minimum value available and disable the external computation thread.
-If set to a value less than the model's minBufferSize, it will be set to
-minBufferSize automatically by the server.
-argument::inputs
-an Array of inputs to the model. It must be of the correct size for the selected
-method, which can be seen by using link::Classes/NNModel#-describe:: or
-link::Classes/NNModel#-method::
+a link::Classes/Symbol:: to identify this model object, and to access it after
+it's loaded.
+
+argument::path
+the file path of the torchscript file to load. The path is standardized with
+link::Classes/String:-standardizePath:: internally.
+
+argument::id
+a number that identifies this model on the server. Pass code::-1:: (default) to
+let the server set this number automatically.
+
+argument::action
+function called after the model and its info are loaded. The callback function
+is given the model as argument.
+
+
+method:: new
+method:: nrt
 
 examples::
 
 code::
 
 (
+// loading
 s.options.memSize = 2**11;
 s.reboot.waitForBoot {
-	NNModel.load(\rave, "~/rave/model.ts")
-	.describe;
-	NNModel.load(\prior, "~/msprior/prior_model.ts")
-	.describe;
+	NN.load(\rave, "~/rave/model.ts", action: _.describe)
+	NN.load(\prior, "~/msprior/prior_model.ts": action: _.describe)
 };
 )
 
 (
+// playing
 {
 	// drive with a sine wave sound
 	var in = SinOsc.ar(MouseX.kr.exprange(20,20000));
 	// encode input sound to latent space
-	var latent = NN.ar(\rave, \encode, in);
+	var latent = NN(\rave, \encode).ar(2048, in);
 	// modulate latent space trajectories...
 	var mod = latent.collect {|l| l + LFNoise1.ar(1).range(-1,1) };
 	// resynth
-	NN.ar(\rave, \decode, mod);
+	NN(\rave, \decode).ar(2048, mod);
 }.play
 )
 
@@ -60,12 +135,12 @@ s.reboot.waitForBoot {
 {
 	var in = WhiteNoise.ar();
 	// encode input sound to latent space
-	var latent = NN.ar(\rave, \encode, in);
+	var latent = NN(\rave, \encode).ar(2048, in);
 	// generate new latent codes with msprior
-	var prior = NN.ar(\prior, \forward, latent);
+	var prior = NN(\prior, \forward).ar(1024, latent);
 	// resynth latent codes to sound out
 	// dropping the last prior element because msprior returns perplexity as 9th output
-	var resynth = NN.ar(\rave, \decode, prior.drop(-1));
+	var resynth = NN(\rave, \decode).ar(2048, prior.drop(-1));
 
 	resynth;
 }.play
