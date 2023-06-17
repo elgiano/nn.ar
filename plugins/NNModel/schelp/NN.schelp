@@ -1,6 +1,6 @@
 class:: NN
 summary:: Global interface for nn.ar: load torchscripts on scsynth
-related:: NNModel, NNModelMethod, NNUGen
+related:: Classes/NNModel, Classes/NNModelMethod, Classes/NNUGen
 categories:: UGens>Machine Learning
 
 description::
@@ -32,6 +32,7 @@ have to be stored in a file. This method is intended for running NRT servers
 without even booting a real-time one:
 
 code::
+// Prerequisite:
 // ask a running server to dump all currently loaded models' info to a file
 NN.dumpInfo("models.yaml");
 
@@ -56,10 +57,17 @@ a = Score([
 )
 ::
 
+In the NN.nrt() { ... } block, the syntax to load methods and create SynthDefs
+is almost the same as in real-time, with the only difference being that
+SynthDefs need to be "sent" to server with code::.doSend(s):: instead of other
+methods. 
+
 A second method is available if models are already loaded on a running server.
 The following code creates messages for the NRT server to load all models
 currently loaded on a RT server, with the same indices, so that SynthDefs built
-on the RT server work also on the NRT one.
+on the RT server work also on the NRT one. The obvious drawback is that this
+method is more expensive in terms of resources, since models are loaded on both
+the real-time and any NRT servers that are launched.
 
 code::
 Score([
@@ -83,26 +91,120 @@ method:: load
 Sends a message to the server to load a torchscript file, and gathers model
 informations as the server returns them. This method should be use to initialize
 a new link::Classes/NNModel:: object.
-
 argument::key
 a link::Classes/Symbol:: to identify this model object, and to access it after
 it's loaded.
-
 argument::path
 the file path of the torchscript file to load. The path is standardized with
-link::Classes/String:-standardizePath:: internally.
-
+link::Classes/String#-standardizePath:: internally.
 argument::id
 a number that identifies this model on the server. Pass code::-1:: (default) to
 let the server set this number automatically.
-
+argument::server
+the server that should load this model. Defaults to link::Classes/Server#*default::.
 argument::action
 function called after the model and its info are loaded. The callback function
 is given the model as argument.
 
 
 method:: new
+This class doesn't construct any instance, but provides this as a convenience method
+for retrieving loaded models or their methods.
+argument::key
+a link::Classes/Symbol:: that identifies the loaded model (see
+link::/Classes/NN#*load::).
+argument::methodName
+a link::Classes/Symbol::. Optional.
+returns:: A link::Classes/NNModel::, if called without providing methodName,
+otherwise a link::Classes/NNModelMethod::. If the requested model or method is
+not found, an error is thrown.
+
+code::
+	NN(\mymodel); // -> NNModel(mymodel ...)
+	NN(\mymodel, \forward); // -> NNModelMethod(forward ...)
+
+	NN(\blah);
+	// sERROR: NNModel: model 'blah' not found
+	NN(\mymodel, \blah);
+	// ERROR: NNModel(mymodel): method blah not found
+::
+
 method:: nrt
+Facility to load model information from a YAML file and create an OSC bundle
+suitable for loading models and SynthDefs on an NRT server. See
+link::Classes/NN#NRT processing::.
+
+argument::infoFile
+path to a YAML file which contains model informations. Such a file can be
+obtained from a running RT server with link::Classes/NN#*dumpInfo::
+argument::makeBundleFn
+a link::Classes/Function:: to be used to create an OSC bundle. All OSC messages
+sent from this function will not be sent to server, but added instead to the
+returned bundle. See link::Classes/Server#-makeBundle::.
+returns:: an OSC bundle, a.k.a. an Array of OSC messages.
+
+
+method::model
+Gets a loaded model by key. Equivalent to code::NN(key)::, but it doesn't throw
+an Error if the model is not found.
+argument:: key
+returns:: an link::Classes/NNModel:: or strong::nil:: if not found.
+
+method::models
+returns:: an Array of all loaded link::Classes/NNModel::.
+
+method::describeAll
+Prints all loaded model informations
+
+method::dumpInfo
+Queries the server to dump all currently loaded models informations to a YAML
+file or to the console. 
+argument::outFile
+path to the YAML file to be written. If code::nil:: it prints to console
+instead.
+argument::server
+
+method:: keyForModel
+Returns the key with which a model is stored in the registry.
+argument:: model
+an link::Classes/NNModel::
+returns:: a Symbol, or code::nil:: if model is not found in registry.
+subsection::OSC Messages
+
+method:: loadMsg
+Returns the OSC message for the server to load a torchscript file.
+argument::id
+a number that identifies this model on the server. Pass code::-1:: (default) to
+let the server set this number automatically.
+argument::path
+the file path of the torchscript file to load. The path is standardized with
+link::Classes/String#-standardizePath:: internally.
+argument::infoFile
+the path to a file where the server is going to write model info. Defaults to
+code::nil:: which disables writing to a file (useful for NRT servers since they
+can't write to files).
+
+method:: setMsg
+Returns the OSC message for the server to set a loaded model's attribute.
+argument::modelIdx
+an Integer that identifies an already loaded model on the server.
+argument::attrIdx
+an Integer that indentifies the desired attribute to be set.
+argument::value
+the attribute value being set.
+
+method:: dumpInfoMsg
+Returns the OSC message for the server to print models info or write them to a
+file
+argument::modelIdx
+an Integer that identifies an already loaded model on the server. Defaults to
+code::-1:: which causes a dump of all loaded model informations in the same
+output.
+argument::outFile
+the path to a file where the server is going to write model info. Defaults to
+code::nil:: which disables writing to a file (useful for NRT servers since they
+can't write to files) and prints to console instead.
+
 
 examples::
 

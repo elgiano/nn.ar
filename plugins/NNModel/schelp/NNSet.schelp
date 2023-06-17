@@ -1,5 +1,5 @@
 class:: NNSet
-summary:: Set a parameter for torchscripts loaded by NNModel
+summary:: Set an attribute for torchscripts loaded by NNModel
 related:: NN, NNModel, NNModelMethod
 categories:: UGens>Machine Learning
 
@@ -10,12 +10,12 @@ classmethods::
 method::kr
 
 argument::key
-The key at which the model was loaded by link::Classes/NNModel#*load::
-argument::settingName
-The name of the setting. To list all available setting names for a model, use
-link::Classes/NNModel#settings::
+a Symbol: the key at which the model was loaded by link::Classes/NNModel#*load::
+argument::attributeName
+a Symbol. To list all available attribute names for a model, use
+link::Classes/NNModel#attributes::
 argument::value
-Control-rate value for the chosen parameter
+Control-rate value for the chosen attribute.
 
 examples::
 
@@ -48,9 +48,9 @@ s.reboot.waitForBoot {
 }.play
 )
 
-// set parameter 'listen' randomly on and off
+// set attribute 'listen' randomly on and off
 {NNSet.kr(\prior, \listen, ToggleFF.kr(Dust.kr(0.1)))}.play
-// modulate parameter 'temperature'
+// modulate attribute 'temperature'
 {NNSet.kr(\prior, \temperature, LFNoise1.kr(0.2).range(0, 4))}.play
 
 // alternatively, "client-side":

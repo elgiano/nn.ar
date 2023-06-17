@@ -74,6 +74,8 @@ set(NNUGens_cpp_files
     plugins/NNModel/cpp/parsing_utils.cpp
 )
 set(NNUGens_sc_files
+    plugins/NNModel/sc/NN.sc
+    plugins/NNModel/sc/NN_nrt.sc
     plugins/NNModel/sc/NNModel.sc
     plugins/NNModel/sc/NNUGens.sc
 )

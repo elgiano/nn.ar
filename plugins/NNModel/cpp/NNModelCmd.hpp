@@ -6,7 +6,7 @@
 
 namespace NN {
 
-char* copyStrToBuf(char** buf, const char* str) {
+inline char* copyStrToBuf(char** buf, const char* str) {
   char* res = strcpy(*buf, str); *buf += strlen(str) + 1;
   return res;
 }
@@ -54,16 +54,16 @@ public:
 struct SetCmdData {
 public:
   int modelIdx;
-  int settingIdx;
+  int attrIdx;
   const char* valueString;
 
   static SetCmdData* alloc(sc_msg_iter* args, InterfaceTable* ft, World* world=nullptr) {
 
     int modelIdx = args->geti(-1);
-    int settingIdx = args->geti(-1);
+    int attrIdx = args->geti(-1);
     const char* valueString = args->gets();
-    if (modelIdx < 0 || settingIdx < 0) {
-      Print("Error: SetCmd needs a model and a setting indices\n");
+    if (modelIdx < 0 || attrIdx < 0) {
+      Print("Error: SetCmd needs a model and attribute indices\n");
       return nullptr;
     }
 
@@ -77,7 +77,7 @@ public:
     }
     char* data = (char*) (cmdData + 1);
     cmdData->modelIdx = modelIdx;
-    cmdData->settingIdx = settingIdx;
+    cmdData->attrIdx = attrIdx;
     cmdData->valueString = copyStrToBuf(&data, valueString);
     return cmdData;
   }

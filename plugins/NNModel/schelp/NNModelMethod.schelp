@@ -9,6 +9,17 @@ model's method. It shouldn't be necessary for the user to create any of these.
 
 instancemethods::
 
+method::ar
+Returns a link::Classes/NNUGen:: for this model method.
+argument::blockSize
+The number of samples to process at the same time.
+argument::inputs
+The array of inputs to the process. It must be the correct size
+(link::NNModelMethod#-numInputs::), otherwise an Error is thrown. If the model
+requires only one input, it can be provided outside an array.
+
+returns:: an Array of link::Classes/OutputProxy:: of size link::NNModelMethod#-numOutputs::.
+
 method::name
 human-readable name
 method::idx
@@ -17,3 +28,20 @@ method::numInputs
 number of inputs
 method::numOutputs
 number of outputs
+
+examples::
+
+code::
+NN(\mymodel, \forward).ar(1024, SoundIn.ar());
+// same as: 
+NN(\mymodel, \forward).ar(1024, [SoundIn.ar()]);
+// -> an OutputProxy
+
+NN(\mymodel, \forward).ar(1024, [WhiteNoise.ar, WhiteNoise.ar]);
+// ERROR: NNModel: method forward has 1 inputs, but was given 2
+
+NN(\mymodel, \decode).ar(1024, {LFNoise1.ar(0.1)}!8);
+// -> an OutputProxy
+NN(\mymodel, \encode).ar(1024, Silent.ar);
+// -> [ an OutputProxy, an OutputProxy, an OutputProxy, an OutputProxy, an OutputProxy, an OutputProxy, an OutputProxy, an OutputProxy ]
+::

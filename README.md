@@ -14,50 +14,52 @@ It has most features of nn_tilde:
 
 ```supercollider
 // Example:
+// 1. load
 s.waitForBoot {
     // when in a Routine, this method waits until the model has loaded
-    NNModel.load(\rave, "~/rave/ravemodel.ts");
-    // when model has loaded, print a description of all methods and parameters
-    NNModel(\rave).describe;
+    NN.load(\rave, "~/rave/ravemodel.ts");
+    // when model has loaded, print a description of all methods and attributes
+    NN(\rave).describe;
 }
 
-NNModel(\rave).methods;
+NN(\rave).methods;
 // -> NNModelMethod(forward: 1 ins, 1 outs), NNModelMethod(encode: 1 ins, 8 outs), ...
 
 
-// play
-{ NN.ar(\rave, \forward, WhiteNoise.ar) }.play
+// 2. play
+{ NN(\rave, \forward).ar(1024, WhiteNoise.ar) }.play;
 
-NNModel.load(\msprior, "~/rave/msprior.ts");
+NN.load(\msprior, "~/rave/msprior.ts", action: _.describe);
 
 {
     var in, latent, modLatent, prior, resynth;
 
     in = SoundIn.ar();
-    latent = NN.ar(\rave, \encode, 2048, in);
+    latent = NN(\rave, \encode).ar(2048, in);
     modLatent = latent.collect { |l|
         l + LFNoise1.ar(MouseY.kr.exprange(0.1, 30)).range(-0.5, 0.5)
     };
-    prior = NN.ar(\msprior, \forward, 2048, latent);
-    resynth = NN.ar(\rave, \decode, 2048, prior.drop(-1);
+    prior = NN(\msprior, \forward).ar(2048, latent);
+    resynth = NN(\rave, \decode).ar(2048, prior.drop(-1);
 
     resynth
 }.play;
 
-NNModel(\msprior).settings;
+NN(\msprior).attributes;
 // -> [ listen, temperature, learn_context, reset ]
 
-// set via command
-NNModel(\rave).set(\listen, false);
-NNModel(\rave).set(\listen, true);
+// set attribute via command
+NN(\msprior).set(\listen, false);
+NN(\msprior).set(\listen, true);
 // set via UGen
 {
     var trig = Dust.kr(MouseY.kr.exprange(0.1, 10));
     NNSet.kr(\msprior, \listen, ToggleFF.kr(trig));
 }.play;
 
-// get parameter
-NNModel(\msprior).get(\temperature)
+// get attribute
+NN(\msprior).get(\temperature) { |val| val.postln } 
+
 { NNGet.kr(\msprior, \temperature).poll }.play;
 ```
 
@@ -92,3 +94,11 @@ it's not: add the option `-DSC_PATH=/path/to/sc/source`.
 ### Developing
 
 The usual `regenerate` command was disabled because `CmakeLists.txt` needed to be manually edited to include libtorch.
+
+#### Design
+
+Torchscripts are loaded on scsynth asynchronously via a PlugIn cmd, and stored with an index, similar to bufnums. Since loaded models can have settable attributes, it is supported to load the same torchscript file more than once, resulting in multiple independent instances of the same model. 
+
+Once a model is loaded, informations about which methods and attributes it offers are cached and optionally communicated to sclang. In lack of a better way to send a complex reply to the client, scsynth will write model informations to a yaml file, which the client can then read.
+
+

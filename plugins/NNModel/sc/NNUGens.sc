@@ -18,16 +18,16 @@ NNUGen : MultiOutUGen {
 
 NNSet : UGen {
 
-	*kr { |key, settingName, input|
-		var model, settingIdx;
+	*kr { |key, attributeName, input|
+		var model, attrIdx;
 		model = NNModel(key) ?? { 
 			Error("NNSet: model % not found".format(key)).throw
 		};
-		settingIdx = model.settings.indexOf(settingName.asSymbol) ?? {
-			Error("NNSet(%): setting % not found. Settings: %"
-				.format(key, settingName, model.settings)).throw;
+		attrIdx = model.attrIdx(attributeName.asSymbol) ?? {
+			Error("NNSet(%): attribute % not found. Attributes: %"
+				.format(key, attributeName, model.attributes)).throw;
 		};
-		^this.new1('control', model.idx, settingIdx, input)
+		^this.new1('control', model.idx, attrIdx, input)
 	}
 	
 	checkInputs {
@@ -39,16 +39,16 @@ NNSet : UGen {
 
 NNGet : UGen {
 
-	*kr { |key, settingName|
-		var model, settingIdx;
+	*kr { |key, attributeName|
+		var model, attrIdx;
 		model = NNModel(key) ?? { 
 			Error("NNGet: model % not found".format(key)).throw
 		};
-		settingIdx = model.settings.indexOf(settingName.asSymbol) ?? {
-			Error("NNGet(%): setting % not found. Settings: %"
-				.format(key, settingName, model.settings)).throw;
+		attrIdx = model.attrIdx(attributeName.asSymbol) ?? {
+			Error("NNGet(%): attribute % not found. Attributes: %"
+				.format(key, attributeName, model.attributes)).throw;
 		};
-		^this.new1('control', model.idx, settingIdx)
+		^this.new1('control', model.idx, attrIdx)
 	}
 	
 	checkInputs {

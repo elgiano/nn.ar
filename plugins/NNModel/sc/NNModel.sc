@@ -1,118 +1,3 @@
-NN {
-
-	classvar rtModelStore, rtModelsInfo;
-	*initClass {
-    rtModelStore = IdentityDictionary[];
-    // store model info by path
-    rtModelsInfo = IdentityDictionary[]
-	}
-
-  *isNRT { ^currentEnvironment[\nn_nrt].notNil }
-	*modelStore { ^if(this.isNRT) { this.nrtModelStore } { rtModelStore } }
-	*models { ^this.modelStore.values }
-	*model { |key| ^this.modelStore[key] }
-  *modelsInfo { ^if(this.isNRT) { this.nrtModelsInfo } { rtModelsInfo }  }
-
-  *cacheInfo { |info|
-		var path = info.path.asSymbol;
-    if (this.modelsInfo[path].notNil) {
-      "NN: overriding cached info for '%'".format(path).warn;
-    };
-    this.modelsInfo[path] = info;
-  }
-	*getCachedInfo { |path| ^this.modelsInfo[path.standardizePath.asSymbol] }
-
-  *nrtModelStore {
-    if (this.isNRT.not) { ^nil };
-    ^currentEnvironment[\nn_nrt].models;
-  }
-
-  *nrtModelsInfo {
-    if (this.isNRT.not) { ^nil };
-    ^currentEnvironment[\nn_nrt].modelsInfo;
-  }
-
-  *nextModelID {
-    if (this.isNRT.not) { ^nil };
-    ^currentEnvironment[\nn_nrt].modelAllocator.alloc;
-  }
-
-	*nrt { |infoFile, fn|
-		^Environment[\nn_nrt -> (
-      modelAllocator: ContiguousBlockAllocator(1024),
-      modelsInfo: IdentityDictionary[],
-      models: IdentityDictionary[]
-    )].use { 
-      NN.readInfo(infoFile);
-      Server.default.makeBundle(false, fn)
-    };	
-	}
-
-  *load { |key, path, id(-1), server(Server.default), action|
-    var model = this.model(key);
-    if (path.isKindOf(String).not) {
-      Error("NN.load: path needs to be a string, got: %").format(path).throw
-    };
-    if (model.isNil) {
-      if (this.isNRT) {
-        var info =  this.getCachedInfo(path) ?? {
-          Error("NN.load (nrt): model info not found for %".format(path)).throw;
-        };
-        model = NNModel.fromInfo(info, this.nextModelID);
-      } {
-        model = NNModel.load(path, id, server, action);
-      };
-      this.modelStore.put(key, model);
-    };
-		if (this.isNRT) {
-			server.sendMsg(*model.loadMsg.postln);
-		}
-    ^model;
-  }
-	
-	*readInfo { |infoFile|
-		if (File.exists(infoFile).not) {
-			Error("NNModel: can't load info file '%'".format(infoFile)).throw;
-		} {
-			var yaml = File.readAllString(infoFile).parseYAML;
-			var models = yaml.collect { |modelInfo|
-				var info = NNModelInfo.fromDict(modelInfo);
-        this.cacheInfo(info);
-			};
-		}
-	}
-
-	// NN(\model) -> NNModel
-	// NN(\model, \method) -> NNModelMethod
-	*new { |key, methodName|
-		var model = this.model(key) ?? { 
-			Error("NNModel: model % not found".format(key)).throw;
-		};
-		if (methodName.isNil) { ^model };
-		^model.method(methodName).postln ?? {
-			Error("NNModel(%): method % not found".format(key, methodName)).throw
-		};
-	}
-
-	*dumpInfo { |outFile, server(Server.default)|
-		forkIfNeeded {
-			server.sync(bundles:[this.dumpInfoMsg(-1, outFile)])		
-		}
-	}
-
-	*loadMsg { |id, path, infoFile|
-		path = path.standardizePath;
-		^["/cmd", "/nn_load", id, path, infoFile]
-	}
-	*setMsg { |modelIdx, settingIdx, value|
-		^["/cmd", "/nn_set", modelIdx, settingIdx, value.asString]
-	}
-	*dumpInfoMsg { |modelIdx, outFile|
-		^["/cmd", "/nn_query", modelIdx ? -1, outFile ? ""]
-	}
-
-	*keyForModel { |model| ^this.modelStore.findKeyForValue(model) }
-}
 
 // NNModel can be constructed only:
 // - *load: by loading a model on the server
@@ -125,7 +10,11 @@ NNModel {
 	*new { ^nil }
 
   minBufferSize { ^if (info.isNil, nil, info.minBufferSize) }
-  settings { ^if(info.isNil, nil, info.settings) }
+  attributes { ^if(info.isNil, nil, info.attributes) }
+	attrIdx { |attrName|
+		var attrs = this.attributes ?? { ^nil };
+		^attrs.indexOf(attrName);
+	}
 
 	*load { |path, id(-1), server(Server.default), action|
 		var loadMsg, infoFile, model;
@@ -138,8 +27,10 @@ NNModel {
 		};
 
 		if (infoFile.isNil) {
-			infoFile = PathName.tmp +/+ "nn-sc-%.yaml".format(UniqueID.next())
+			var infoID = UniqueID.next; 
+			infoFile = PathName.tmp +/+ "nn-sc-" ++ infoID ++ ".yaml"
 		};
+
 		loadMsg = NN.loadMsg(id, path, infoFile);
 
 		model = super.newCopyArgs(server);
@@ -161,7 +52,7 @@ NNModel {
   initFromFile { |infoFile|
     var info = NNModelInfo.fromFile(infoFile);
     this.initFromInfo(info);
-    NN.cacheInfo(info);
+    NN.prCacheInfo(info);
   }
   initFromInfo { |infoObj, overrideId|
     info = infoObj;
@@ -181,24 +72,23 @@ NNModel {
 		^NN.loadMsg(idx, newPath ? path, infoFile)
 	}
 
-	get { |settingName, action|
+	get { |attributeName, action|
 		{
-			NNGet.kr(this.idx, settingName)
+			NNGet.kr(this.idx, attributeName)
 		}.loadToFloatArray(server.options.blockSize / server.sampleRate, server) { |v|
 			action.(v.last)
 		}
 	}
 
-	setMsg { |settingName, value|
-		var settingIdx = this.settings.indexOf(settingName.asSymbol);
-		settingIdx ?? {
-			Error("NNModel(%): setting % not found. Settings: %"
-				.format(this.key, settingName, this.settings)).throw;
+	setMsg { |attributeName, value|
+		var attrIdx = this.attrIdx(attributeName.asSymbol) ?? {
+			Error("NNModel(%): attribute % not found. Attributes: %"
+				.format(this.key, attributeName, this.attributes)).throw;
 		};
-		^NN.setMsg(this.idx, settingIdx, value)
+		^NN.setMsg(this.idx, attrIdx, value)
 	}
-	set { |settingName, value|
-		var msg = this.setMsg(settingName, value);
+	set { |attributeName, value|
+		var msg = this.setMsg(attributeName, value);
 		this.prErrIfNoServer("dumpInfo");
 		if (server.serverRunning.not) { Error("server not running").throw };
 		forkIfNeeded { server.sync(bundles: [msg]) };
@@ -229,7 +119,7 @@ NNModel {
 	}
 
 	printOn { |stream|
-		stream << "NNModel(%, %)%".format(this.key, this.minBufferSize, this.methods.collect(_.name));
+		stream << "NNModel(" << this.key << ", " << this.minBufferSize << ")";
 	}
 
 	prErrIfNoServer { |funcName|
@@ -244,7 +134,7 @@ NNModel {
 }
 
 NNModelInfo {
-	var <idx, <path, <minBufferSize, <methods, <settings;
+	var <idx, <path, <minBufferSize, <methods, <attributes;
   *new {}
 
   *fromFile { |infoFile|
@@ -268,7 +158,7 @@ NNModelInfo {
 			var outDim = m["outDim"].asInteger;
 			NNModelMethod(nil, name, n, inDim, outDim);
 		};
-		settings = yaml["settings"].collect(_.asSymbol) ?? { [] }
+		attributes = yaml["attributes"].collect(_.asSymbol) ?? { [] }
   }
 }
 

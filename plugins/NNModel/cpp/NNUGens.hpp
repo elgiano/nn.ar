@@ -42,29 +42,27 @@ private:
 };
 
 
-class NNParamUGen : public SCUnit {
+class NNAttrUGen : public SCUnit {
 public:
-  NNParamUGen();
+  NNAttrUGen();
 
-  enum NNParamInputs { modelIdx=0, settingIdx };
+  enum NNAttrInputs { modelIdx=0, attrIdx };
   NNModel* m_model;
-  unsigned short m_setting;
+  unsigned short m_attrIdx;
 };
 
-class NNSet : public NNParamUGen {
+class NNSet : public NNAttrUGen {
 public:
   NNSet();
-
   void next(int nSamples);
 
 private:
-  enum UGenInputs { value=NNParamInputs::settingIdx+1 };
+  enum UGenInputs { value=NNAttrInputs::attrIdx+1 };
 };
 
-class NNGet : public NNParamUGen {
+class NNGet : public NNAttrUGen {
 public:
   NNGet();
-
   void next(int nSamples);
 };
 

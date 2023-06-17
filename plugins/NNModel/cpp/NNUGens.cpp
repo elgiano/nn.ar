@@ -15,10 +15,14 @@ static InterfaceTable* ft;
 
 // global model store, by numeric id
 static NN::NNModelRegistry gModels;
+
 namespace NN {
 
 
 NNModel::NNModel(): m_backend(), m_methods(), m_path() {
+}
+
+NNModelRegistry::NNModelRegistry(): models(), modelCount(0) {
 }
 
 unsigned short NNModelRegistry::getNextId() {
@@ -34,7 +38,12 @@ NNModel* NNModelRegistry::get(unsigned short id, bool warn) {
     model = models.at(id);
     found = model != nullptr;
   } catch(...) {
-    if (warn) Print("NNBackend: id %d not found\n", id);
+    if (warn) {
+      Print("NNBackend: id %d not found. Loaded models:\n", id);
+      for (auto kv: models) {
+        Print("id: %d -> %s\n", kv.first, kv.second->m_path.c_str());
+      }
+    };
     found = false;
   }
 
@@ -60,6 +69,7 @@ NNModel* NNModelRegistry::load(const char* path) {
 }
 NNModel* NNModelRegistry::load(unsigned short id, const char* path) {
   auto model = get(id, false);
+  /* Print("NNBackend: loading model %s at idx %d\n", path, id); */
   if (model != nullptr) {
     if (model->m_path == path) {
       Print("NNBackend: model %d already loaded %s\n", id, path);
@@ -105,37 +115,37 @@ bool NNModel::load(const char* path) {
   }
   m_higherRatio = m_backend.get_higher_ratio();
 
-  // cache settings
-  if (m_settings.size() > 0) m_settings.clear();
+  // cache attributes
+  if (m_attributes.size() > 0) m_attributes.clear();
   for (std::string name: m_backend.get_settable_attributes()) {
-    m_settings.push_back(name);
+    m_attributes.push_back(name);
   }
 
   return true;
 }
 
-bool NNModel::set(std::string name, std::string value, bool warn) {
-  /* Print("setting %s to %f\n", name.c_str(), value); */
+bool NNModel::set(std::string attrName, std::string value, bool warn) {
+  /* Print("setting attr %s to %f\n", name.c_str(), value); */
   std::vector<std::string> args = {value};
   try {
-    m_backend.set_attribute(name, args);
+    m_backend.set_attribute(attrName, args);
   } catch (...) {
-    if (warn) Print("NNBackend: can't set attribute %s\n", name.c_str());
+    if (warn) Print("NNBackend: can't set attribute %s\n", attrName.c_str());
     return false;
   }
   return true;
 }
-bool NNModel::set(unsigned short settingIdx, std::string value, bool warn) {
-  std::string setting = getSetting(settingIdx, warn);
-  if (setting.empty()) return false;
-  return set(setting, value, warn);
+bool NNModel::set(unsigned short attrIdx, std::string value, bool warn) {
+  std::string attrName = getAttribute(attrIdx, warn);
+  if (attrName.empty()) return false;
+  return set(attrName, value, warn);
 };
-bool NNModel::set(unsigned short settingIdx, float value, bool warn) {
-  return set(settingIdx, std::to_string(value), warn);
+bool NNModel::set(unsigned short attrIdx, float value, bool warn) {
+  return set(attrIdx, std::to_string(value), warn);
 }
 
 float NNModel::get(std::string name, bool warn) {
-  /* Print("setting %s to %f\n", name.c_str(), value); */
+  /* Print("attribute %s to %f\n", name.c_str(), value); */
   try {
     auto value = m_backend.get_attribute(name)[0];
     /* auto str = m_backend.get_attribute_as_string(name); */
@@ -158,10 +168,10 @@ float NNModel::get(std::string name, bool warn) {
     return 0;
   }
 }
-float NNModel::get(unsigned short settingIdx, bool warn) {
-  std::string setting = getSetting(settingIdx, warn);
-  if (setting.empty()) return false;
-  return get(setting, warn);
+float NNModel::get(unsigned short attrIdx, bool warn) {
+  std::string attr = getAttribute(attrIdx, warn);
+  if (attr.empty()) return false;
+  return get(attr, warn);
 };
 
 
@@ -182,11 +192,11 @@ NNModelMethod* NNModel::getMethod(unsigned short idx, bool warn) {
   }
 }
 
-std::string NNModel::getSetting(unsigned short idx, bool warn) {
+std::string NNModel::getAttribute(unsigned short idx, bool warn) {
   try {
-    return m_settings.at(idx);
+    return m_attributes.at(idx);
   } catch (const std::out_of_range&) {
-    if (warn) Print("NNBackend: setting %d not found\n", idx);
+    if (warn) Print("NNBackend: attribute %d not found\n", idx);
     return nullptr;
   }
 }
@@ -205,10 +215,9 @@ void NNModel::streamInfo(std::ostream& stream) {
       << "\n      outDim: " << m.outDim
       << "\n      outRatio: " << m.outRatio;
   }
-  auto settings = m_backend.get_settable_attributes();
-  if (settings.size() > 0) {
-    stream << "\n  settings:";
-    for(std::string attr: settings)
+  if (m_attributes.size() > 0) {
+    stream << "\n  attributes:";
+    for(std::string attr: m_attributes)
       stream << "\n    - " << attr; 
   }
   stream << "\n";
@@ -257,9 +266,9 @@ bool NNModelRegistry::dumpAllInfo(const char* filename) {
 // UGEN
 
 NNModel* getModel(float modelIdx) {
-  auto model = gModels.get(static_cast<unsigned short>(modelIdx));
+  auto model = gModels.get(static_cast<unsigned short>(modelIdx), true);
   if (model == nullptr)
-    Print("NNBackend: model %d not found");
+    Print("NNUGen: model %d not found\n");
   return model;
 }
 
@@ -443,21 +452,21 @@ void NN::next(int nSamples) {
 
 // PARAMS
 
-NNParamUGen::NNParamUGen(): m_model(nullptr) {
-  m_model = getModel(in0(NNParamInputs::modelIdx));
-  /* Print("NNParamUGen: Ctor\nmodel: %p\n", m_model); */
-  m_setting = static_cast<unsigned short>(in0(NNParamInputs::settingIdx));
-  /* Print("setting: #%d\n", m_setting); */
-  std::string setting;
+NNAttrUGen::NNAttrUGen(): m_model(nullptr) {
+  m_model = getModel(in0(NNAttrInputs::modelIdx));
+  /* Print("NNAttrUGen: Ctor\nmodel: %p\n", m_model); */
+  m_attrIdx = static_cast<unsigned short>(in0(NNAttrInputs::attrIdx));
+  /* Print("attr: #%d\n", m_attrName); */
+  std::string attrName;
   if (m_model != nullptr)
-    setting = m_model->getSetting(m_setting);
-  if (setting.empty()) {
+    attrName = m_model->getAttribute(m_attrIdx);
+  if (attrName.empty()) {
     mDone = true;
     Unit* unit = this;
     SETCALC(ClearUnitOutputs);
     return;
   }
-  /* Print("settingName: %s\n", setting.c_str()); */
+  /* Print("attrName: %s\n", attrName.c_str()); */
 }
 
 NNSet::NNSet() {
@@ -467,7 +476,7 @@ void NNSet::next(int nSamples) {
   Unit* unit = this;
   ClearUnitOutputs;
   if (mDone) { return; }
-  m_model->set(m_setting, in0(UGenInputs::value));
+  m_model->set(m_attrIdx, in0(UGenInputs::value));
 }
 
 NNGet::NNGet() {
@@ -479,17 +488,18 @@ void NNGet::next(int nSamples) {
   if (mDone) {
     return;
   };
-  out0(0) = m_model->get(m_setting, true);
+  out0(0) = m_model->get(m_attrIdx, true);
 }
 
-// CMDS
+namespace Cmd {
 
-bool doLoadMsg(World* world, void* inData) {
+bool nn_load(World* world, void* inData) {
   LoadCmdData* data = (LoadCmdData*)inData;
   int id = data->id;
   const char* path = data->path;
   const char* filename = data->filename;
 
+  // Print("nn_load: idx %d path %s\n", id, path);
   auto model = (id == -1) ? gModels.load(path) : gModels.load(id, path);
 
   if (model != nullptr && strlen(filename) > 0) {
@@ -498,34 +508,34 @@ bool doLoadMsg(World* world, void* inData) {
   return true;
 }
 
-bool doSetMsg(World* world, void* inData) {
+bool nn_set(World* world, void* inData) {
   SetCmdData* data = (SetCmdData*)inData;
   int modelIdx = data->modelIdx;
-  int settingIdx = data->settingIdx;
+  int attrIdx = data->attrIdx;
   std::string valueString = data->valueString;
 
   auto model = gModels.get(modelIdx);
   if (!model) return true;
-  model->set(settingIdx, valueString);
+  model->set(attrIdx, valueString);
   return true;
 }
 
-// CMDS
-bool doQueryMsg(World* world, void* inData) {
+bool nn_query(World* world, void* inData) {
   QueryCmdData* data = (QueryCmdData*)inData;
   int modelIdx = data->modelIdx;
   const char* outFile = data->outFile;
   bool writeToFile = strlen(outFile) > 0;
   if (modelIdx < 0) {
-    if (writeToFile) { gModels.dumpAllInfo(outFile); } else { gModels.printAllInfo(); }
+    if (writeToFile) gModels.dumpAllInfo(outFile); else gModels.printAllInfo();
     return true;
   }
-  const auto model = gModels.get(modelIdx, true);
+  const auto model = gModels.get(static_cast<unsigned short>(modelIdx), true);
   if (model) {
     if (writeToFile) model->dumpInfo(outFile); else model->printInfo();
   }
   return true;
 }
+} // namespace NN::Cmd
 
 } // namespace NN
 
@@ -548,9 +558,9 @@ PluginLoad(NNUGens) {
   // Plugin magic
   ft = inTable;
 
-  DefinePlugInCmd("/nn_load", asyncCmd<NN::LoadCmdData, NN::doLoadMsg>, nullptr);
-  DefinePlugInCmd("/nn_query", asyncCmd<NN::QueryCmdData, NN::doQueryMsg>, nullptr);
-  DefinePlugInCmd("/nn_set", asyncCmd<NN::SetCmdData, NN::doSetMsg>, nullptr);
+  DefinePlugInCmd("/nn_load", asyncCmd<NN::LoadCmdData, NN::Cmd::nn_load>, nullptr);
+  DefinePlugInCmd("/nn_set", asyncCmd<NN::SetCmdData, NN::Cmd::nn_set>, nullptr);
+  DefinePlugInCmd("/nn_query", asyncCmd<NN::QueryCmdData, NN::Cmd::nn_query>, nullptr);
   registerUnit<NN::NN>(ft, "NNUGen", false);
   registerUnit<NN::NNSet>(ft, "NNSet", false);
   registerUnit<NN::NNGet>(ft, "NNGet", false);

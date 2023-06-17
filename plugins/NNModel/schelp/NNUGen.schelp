@@ -48,11 +48,11 @@ s.reboot.waitForBoot {
 	// drive with a sine wave sound
 	var in = SinOsc.ar(MouseX.kr.exprange(20,20000));
 	// encode input sound to latent space
-	var latent = NN.ar(\rave, \encode, in);
+	var latent = NN(\rave, \encode).ar(1024, in);
 	// modulate latent space trajectories...
 	var mod = latent.collect {|l| l + LFNoise1.ar(1).range(-1,1) };
 	// resynth
-	NN.ar(\rave, \decode, mod);
+	NN(\rave, \decode).ar(1024, mod);
 }.play
 )
 
@@ -60,12 +60,12 @@ s.reboot.waitForBoot {
 {
 	var in = WhiteNoise.ar();
 	// encode input sound to latent space
-	var latent = NN.ar(\rave, \encode, in);
+	var latent = NN(\rave, \encode).ar(1024, in);
 	// generate new latent codes with msprior
-	var prior = NN.ar(\prior, \forward, latent);
+	var prior = NN(\prior, \forward).ar(1024, latent);
 	// resynth latent codes to sound out
 	// dropping the last prior element because msprior returns perplexity as 9th output
-	var resynth = NN.ar(\rave, \decode, prior.drop(-1));
+	var resynth = NN(\rave, \decode).ar(1024, prior.drop(-1));
 
 	resynth;
 }.play

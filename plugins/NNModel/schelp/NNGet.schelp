@@ -1,5 +1,5 @@
 class:: NNGet
-summary:: Get a parameter value for torchscripts loaded by NNModel
+summary:: Get an attribute value for torchscripts loaded by NNModel
 related:: NN, NNModel, NNSet, NNModelMethod
 categories:: UGens>Machine Learning
 
@@ -10,10 +10,10 @@ classmethods::
 method::kr
 
 argument::key
-The key at which the model was loaded by link::Classes/NNModel#*load::
-argument::settingName
-The name of the setting. To list all available setting names for a model, use
-link::Classes/NNModel#settings::
+a Symbol: the key at which the model was loaded by link::Classes/NNModel#*load::
+argument::attributeName
+a Symbol. To list all available attribute names for a model, use
+link::Classes/NNModel#attributes::
 
 examples::
 
