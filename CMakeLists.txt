@@ -64,7 +64,7 @@ if (NOVA_SIMD)
 endif()
 
 find_package(Torch REQUIRED) # find torch
-
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 ####################################################################################################
 # Begin target NNUGens
 
@@ -103,6 +103,26 @@ if(SUPERNOVA)
   target_link_libraries(NNUGens_supernova "${TORCH_LIBRARIES}")
 endif()
 
+# The following code block is suggested to be used on Windows.
+# According to https://github.com/pytorch/pytorch/issues/25457,
+# the DLLs need to be copied to avoid memory errors.
+if (MSVC)
+  file(GLOB TORCH_DLLS "${TORCH_INSTALL_PREFIX}/lib/*.dll")
+  if(SCSYNTH)
+  add_custom_command(TARGET NNUGens_scsynth
+                     POST_BUILD
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                     ${TORCH_DLLS}
+                     $<TARGET_FILE_DIR:NNUGens_scsynth>)
+  endif()
+  if(SUPERNOVA)
+  add_custom_command(TARGET NNUGens_supernova
+                     POST_BUILD
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                     ${TORCH_DLLS}
+                     $<TARGET_FILE_DIR:NNUGens_supernova>)
+  endif()
+endif (MSVC)
 # End target NNModel
 ####################################################################################################
 

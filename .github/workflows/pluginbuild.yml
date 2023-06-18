@@ -12,22 +12,32 @@ jobs:
       matrix:
         include:
 
-          - name: macOS
-            os: macos-10.15
+          - name: 'Linux-x64'
+            os: ubuntu-latest
+            torch: https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.0.1%2Bcpu.zip
 
-          - name: Linux-x64
-            os: ubuntu-18.04
+          - name: 'Windows-x64'
+            os: windows-latest
+            torch: https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-2.0.1%2Bcpu.zip
 
-          - name: Windows-x64
-            os: windows-2019
+          - name: 'macOS-x64'
+            os: macos-latest
+            torch: https://download.pytorch.org/libtorch/cpu/libtorch-macos-2.0.1.zip
+
+          - name: 'macOS-arm64'
+            arch: arm64
+            os: macos-latest
 
     env:
       SC_PATH: ${{ github.workspace }}/supercollider
+      TORCH_PATH: ${{ github.workspace }}/libtorch
       BUILD_PATH: ${{ github.workspace }}/build
       INSTALL_PATH: ${{ github.workspace }}/build/Install
-      ARCHIVE_NAME: NNModel-${{ matrix.name }}.zip
+      ARCHIVE_NAME: nn.ar-${{ matrix.name }}.zip
+      CMAKE_OSX_ARCHITECTURES: '${{ matrix.arch }}'
+
     steps:
-    - name: Checkout NNModel
+    - name: Checkout nn.ar
       uses: actions/checkout@v2
 
     - name: Checkout SuperCollider
@@ -37,8 +47,27 @@ jobs:
         path: ${{ env.SC_PATH }}
         ref: main
 
-      # Create a separate build directory
-      # We'll use this as our working directory for subsequent commands
+      # Get libtorch
+    - name: Download libtorch (Unix)
+      if: runner.os != 'Windows' && matrix.arch != 'arm64'
+      run: |
+        wget ${{ matrix.torch }} -O libtorch.zip
+        unzip libtorch.zip
+
+    - name: Download libtorch (MacOS arm64)
+      if: matrix.arch == 'arm64'
+      run: |
+        curl -L https://anaconda.org/pytorch/pytorch/2.0.0/download/osx-arm64/pytorch-2.0.0-py3.10_0.tar.bz2 | tar -xj
+        mv lib/python3.10/site-packages/torch "$TORCH_PATH"
+
+    - name: Download libtorch (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        $wc = New-Object System.Net.WebClient
+        $wc.DownloadFile('${{ matrix.torch }}', 'libtorch.zip')
+        7z x libtorch.zip
+
+      # Build
     - name: Create Build Environment
       shell: bash
       run: cmake -E make_directory $BUILD_PATH
@@ -46,7 +75,7 @@ jobs:
     - name: Configure CMake
       shell: bash
       working-directory: ${{ env.BUILD_PATH }}
-      run: cmake .. -DCMAKE_BUILD_TYPE='Release' -DSC_PATH="$SC_PATH" -DCMAKE_INSTALL_PREFIX="$INSTALL_PATH"
+      run: cmake .. -DCMAKE_BUILD_TYPE='Release' -DSC_PATH="$SC_PATH" -DCMAKE_INSTALL_PREFIX="$INSTALL_PATH" -DCMAKE_PREFIX_PATH="$TORCH_PATH"
 
     - name: Build
       shell: bash
@@ -60,15 +89,15 @@ jobs:
       if: runner.os != 'Windows'
       shell: bash
       working-directory: ${{ env.INSTALL_PATH }}
-      run: zip -r "$ARCHIVE_NAME" "NNModel"
+      run: zip -r "$ARCHIVE_NAME" "nn.ar"
 
-      # Gather all files in a zip
     - name: Zip up build (Windows)
       if: runner.os == 'Windows'
       shell: bash
       working-directory: ${{ env.INSTALL_PATH }}
-      run: 7z a "$ARCHIVE_NAME" -tzip "NNModel"
+      run: 7z a "$ARCHIVE_NAME" -tzip "nn.ar"
 
+      # Upload
     - name: Upload binaries to release
       uses: svenstaro/upload-release-action@v2
       with:

@@ -79,17 +79,31 @@ Clone the project:
     mkdir build
     cd build
 
-Then, use CMake to configure and build it:
+Then, use CMake to configure:
 
     cmake .. -DCMAKE_BUILD_TYPE=Release
-    cmake --build . --config Release
-    cmake --build . --config Release --target install
 
-You may want to manually specify the install location in the first step to point it at your
-SuperCollider extensions directory: add the option `-DCMAKE_INSTALL_PREFIX=/path/to/extensions`.
+Libtorch is found automatically if installed system-wise. If you followed the official install instruction for libtorch (link above), you need to add it to CMAKE_PREFIX_PATH:
+
+    cmake .. -DCMAKE_PREFIX_PAH=/path/to/libtorch/
 
 It's expected that the SuperCollider repo is cloned at `../supercollider` relative to this repo. If
 it's not: add the option `-DSC_PATH=/path/to/sc/source`.
+
+    cmake .. -DSC_PATH=/path/to/sc/source
+
+You may want to manually specify the install location in the first step to point it at your
+SuperCollider extensions directory: add the option `-DCMAKE_INSTALL_PREFIX=/path/to/extensions`.
+Note that you can retrieve the Extension path from sclang with `Platform.userExtensionDir`
+
+    cmake .. -DCMAKE_INSTALL_PREFIX=/path/to/extensions
+
+Finally, use CMake to build the project:
+
+    cmake --build . --config Release
+    cmake --build . --config Release --target install
+
+
 
 ### Developing
 
