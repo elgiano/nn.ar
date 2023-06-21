@@ -8,12 +8,14 @@
 #include <vector>
 
 class Backend {
-private:
+protected:
   torch::jit::script::Module m_model;
   int m_loaded;
   std::string m_path;
   std::mutex m_model_mutex;
   std::vector<std::string> m_available_methods;
+  c10::DeviceType m_device;
+  bool m_use_gpu;
 
 public:
   Backend();
@@ -34,7 +36,7 @@ public:
   int load(std::string path);
   int reload();
   bool is_loaded();
-  bool m_cuda_available;
   torch::jit::script::Module get_model() { return m_model; }
+  void use_gpu(bool value);
 };
 
