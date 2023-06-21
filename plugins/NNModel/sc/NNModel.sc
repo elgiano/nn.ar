@@ -9,7 +9,7 @@ NNModel {
 
 	*new { ^nil }
 
-  minBufferSize { ^if (info.isNil, nil, info.minBufferSize) }
+  minBufferSize { ^if (info.isNil) { nil } { info.minBufferSize } }
   attributes { ^if(info.isNil, nil, info.attributes) }
 	attrIdx { |attrName|
 		var attrs = this.attributes ?? { ^nil };
@@ -119,7 +119,7 @@ NNModel {
 	}
 
 	printOn { |stream|
-		stream << "NNModel(" << this.key << ", " << this.minBufferSize << ")";
+		stream << "NNModel(" <<* [this.key, this.minBufferSize] << ")";
 	}
 
 	prErrIfNoServer { |funcName|

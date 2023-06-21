@@ -39,4 +39,38 @@
     if (this.isNRT.not) { ^nil };
     ^currentEnvironment[\nn_nrt].modelAllocator.alloc;
   }
+
+}
+
++ NNModel {
+
+	nrtResynth { |bufPath, dstPath, blockSize|
+		var startTime = Date.getDate.rawSeconds;
+		var sampleRate, nch, duration;
+		SoundFile.use(bufPath) { |sf|
+			sampleRate = sf.sampleRate;
+			nch = sf.numChannels;
+			duration = sf.duration;
+		};
+
+		Score([
+			[0.0, this.loadMsg],
+			[0.0, ["/d_recv", SynthDef(\resynth) { |out=0|
+				Out.ar(out, SoundIn.ar((0..nch)).collect { |ch|
+				this.method(\forward).ar(blockSize, ch)
+				})
+			}.asBytes]],
+			[0.0, Synth.basicNew(\resynth).newMsg],
+			[duration + (blockSize / sampleRate)]
+		]).recordNRT(
+			inputFilePath: bufPath,
+			outputFilePath: dstPath,
+			headerFormat: "wav",
+			sampleRate: sampleRate,
+			sampleFormat: "float",
+			action: { "done in %".format(Date.getDate.rawSeconds - startTime).postln },
+			options: ServerOptions()
+				.numInputBusChannels_(nch).numOutputBusChannels_(nch)
+		)
+	}
 }

@@ -70,6 +70,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
 set(NNUGens_cpp_files
     plugins/NNModel/cpp/NNUGens.cpp
+    plugins/NNModel/cpp/NNModel.cpp
+    plugins/NNModel/cpp/NNModelCmd.cpp
     plugins/NNModel/cpp/backend.cpp
     plugins/NNModel/cpp/parsing_utils.cpp
 )
@@ -87,6 +89,7 @@ set(NNUGens_schelp_files
     plugins/NNModel/schelp/NNSet.schelp
 )
 
+
 sc_add_server_plugin(
     "nn.ar/" # desination directory
     "NNUGens" # target name
@@ -94,7 +97,6 @@ sc_add_server_plugin(
     "${NNUGens_sc_files}"
     "${NNUGens_schelp_files}"
 )
-
 
 if(SCSYNTH)
   target_link_libraries(NNUGens_scsynth "${TORCH_LIBRARIES}")
