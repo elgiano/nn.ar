@@ -7,7 +7,9 @@
 #include <torch/torch.h>
 #include <vector>
 
+namespace NN { class NNModel; }
 class Backend {
+  friend NN::NNModel;
 protected:
   torch::jit::script::Module m_model;
   int m_loaded;

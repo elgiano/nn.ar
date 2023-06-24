@@ -5,50 +5,56 @@
 */
 #pragma once
 #include "SC_World.h"
+#include <cstring>
 #include <memory>
 #include <iostream>
+#include "SC_InlineBinaryOp.h"
 
 namespace NN {
 template <class in_type, class out_type> class RingBufCtrl {
 public:
   RingBufCtrl(out_type* buf, size_t size): _buffer(buf), _max_size(size) {
   };
-  out_type* getBuffer() { return _buffer; }
-  bool empty() { 
+
+  out_type* getBuffer() const { return _buffer; }
+  bool full() const { return _full; };
+  bool empty() const { 
     return (!_full && _head == _tail);
   }
-  bool full() { return _full; };
-  void put(const in_type *input_array, int N) {
-    if (!_max_size)
-      return;
+  size_t readable() const { 
+    return empty() ? 0 : _head > _tail ? _head - _tail : _max_size - (_tail - _head); 
+  }
 
-    while (N--) {
-      _buffer[_head] = out_type(*(input_array++));
-      _head = (_head + 1) % _max_size;
-      if (_full)
-        _tail = (_tail + 1) % _max_size;
-      _full = _head == _tail;
+  void put(const in_type *input_array, int N) {
+    size_t written = 0;
+
+    while (written < N) {
+      int chunkSize = sc_min(N - written, _max_size - _head);
+      memcpy(&_buffer[_head], &input_array[written], chunkSize * sizeof(out_type));
+      _head = sc_mod(_head + chunkSize, _max_size);
+      written += chunkSize;
     }
+
+    if (_head == _tail) _full = true;
   }
 
   void get(out_type *output_array, int N) {
-    if (!_max_size)
-      return;
+    size_t read = 0;
+    size_t bytesToRead = sc_min(readable(), N);
 
-    while (N--) {
-      if (empty()) {
-        *(output_array++) = out_type();
-      } else {
-        *(output_array++) = _buffer[_tail];
-        _tail = (_tail + 1) % _max_size;
-        _full = false;
-      }
+    while (read < bytesToRead) {
+      int chunkSize = sc_min(bytesToRead - read, _max_size - _tail);
+      memcpy(&output_array[read], &_buffer[_tail], chunkSize * sizeof(out_type));
+      _tail = sc_mod(_tail + chunkSize, _max_size);
+      read += chunkSize;
     }
+    if (bytesToRead < N)
+      memset(&output_array[bytesToRead], 0, sizeof(out_type) * (N-bytesToRead));
+    _full = false;
   };
 
   void reset() {;
     _head = _tail;
-    _count = 0;
     _full = false;
   }
 
@@ -58,7 +64,6 @@ protected:
 
   int _head = 0;
   int _tail = 0;
-  int _count = 0;
   bool _full = false;
 };
 }
