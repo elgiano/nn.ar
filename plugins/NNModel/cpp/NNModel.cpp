@@ -25,7 +25,7 @@ NNModel* NNModelRegistry::get(unsigned short id, bool warn) const {
     found = model != nullptr;
   } catch(...) {
     if (warn) {
-      Print("NNBackend: id %d not found. Loaded models:\n", id);
+      Print("NNBackend: id %d not found. Loaded models:%s\n", id, models.size() ? "" : " []");
       for (auto kv: models) {
         Print("id: %d -> %s\n", kv.first, kv.second->m_path.c_str());
       }

@@ -13,14 +13,11 @@ NN::NNModelRegistry gModels;
 
 namespace NN {
 
-NNModel* getModel(float modelIdx) {
-  auto model = gModels.get(static_cast<unsigned short>(modelIdx), true);
-  if (model == nullptr)
-    Print("NNUGen: model %d not found\n");
-  return model;
+static NNModel* getModel(float modelIdx) {
+  return gModels.get(static_cast<unsigned short>(modelIdx), true);
 }
 
-NNModelMethod* getModelMethod(NNModel* model, float methodIdx) {
+static NNModelMethod* getModelMethod(NNModel* model, float methodIdx) {
   if (model == nullptr) return nullptr;
 
   auto method = model->getMethod(static_cast<unsigned short>(methodIdx));
@@ -281,7 +278,6 @@ void NNGet::next(int nSamples) {
   };
   out0(0) = m_model->get(m_attrIdx, true);
 }
-
 
 } // namespace NN
 
