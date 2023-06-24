@@ -17,7 +17,7 @@ unsigned short NNModelRegistry::getNextId() {
   return id;
 };
 
-NNModel* NNModelRegistry::get(unsigned short id, bool warn) {
+NNModel* NNModelRegistry::get(unsigned short id, bool warn) const {
   NNModel* model;
   bool found = false;
   try {
@@ -40,13 +40,13 @@ NNModel* NNModelRegistry::get(unsigned short id, bool warn) {
   return model;
 }
 
-void NNModelRegistry::streamAllInfo(std::ostream& dest) {
+void NNModelRegistry::streamAllInfo(std::ostream& dest) const{
   for (const auto kv: models) {
     kv.second->streamInfo(dest);
   }
 }
 
-void NNModelRegistry::printAllInfo() {
+void NNModelRegistry::printAllInfo() const{
   streamAllInfo(std::cout);
   std::cout << std::endl;
 }
@@ -79,7 +79,7 @@ NNModel* NNModelRegistry::load(unsigned short id, const char* path) {
   }
 }
 
-bool NNModelRegistry::dumpAllInfo(const char* filename) {
+bool NNModelRegistry::dumpAllInfo(const char* filename) const {
   std::ofstream file;
   try {
     file.open(filename);
@@ -201,7 +201,7 @@ NNModelMethod* NNModel::getMethod(unsigned short idx, bool warn) {
   }
 }
 
-std::string NNModel::getAttribute(unsigned short idx, bool warn) {
+std::string NNModel::getAttribute(unsigned short idx, bool warn) const {
   try {
     return m_attributes.at(idx);
   } catch (const std::out_of_range&) {
@@ -212,7 +212,7 @@ std::string NNModel::getAttribute(unsigned short idx, bool warn) {
 
 // file dumps are needed to share info with client
 
-void NNModel::streamInfo(std::ostream& stream) {
+void NNModel::streamInfo(std::ostream& stream) const {
   stream << "- idx: " << m_idx
     << "\n  modelPath: " << m_path.c_str()
     << "\n  minBufferSize: " << m_higherRatio
@@ -232,12 +232,12 @@ void NNModel::streamInfo(std::ostream& stream) {
   stream << "\n";
 }
 
-void NNModel::printInfo() {
+void NNModel::printInfo() const {
   streamInfo(std::cout);
   std::cout << std::endl;
 }
 
-bool NNModel::dumpInfo(const char* filename) {
+bool NNModel::dumpInfo(const char* filename) const {
   std::ofstream file;
   try {
     file.open(filename);
@@ -253,6 +253,64 @@ bool NNModel::dumpInfo(const char* filename) {
     Print("ERROR: NNBackend couldn't dump info to file %s\n", filename);
     return false;
   }
+}
+
+// custom perform method:
+// - avoid creating vectors
+// - no lock
+// - simplified tensor_in reshaping
+auto const CPU = torch::kCPU;
+void NNModel::perform(
+  float* in_buffer, float* out_buffer, int n_vec, 
+  const NNModelMethod* method, int n_batches) const {
+
+  c10::InferenceMode guard;
+  int in_dim = method->inDim;
+  int in_ratio = method->inRatio;
+  int out_dim = method->outDim;
+  int out_ratio = method->outRatio;
+  auto script_method = m_backend.m_model.get_method(method->name);
+  auto m_device = m_backend.m_device;
+
+  /* if (!m_loaded) return; */
+
+  // COPY BUFFER INTO A TENSOR
+  /* auto tensor_in = torch::from_blob(in_buffer, {1, in_dim, n_vec}); */
+  /* tensor_in = tensor_in.reshape({in_dim, n_batches, -1, in_ratio}); */
+  auto tensor_in = torch::from_blob(in_buffer, {n_batches, in_dim, n_vec/in_ratio, in_ratio});
+  tensor_in = tensor_in.select(-1, -1);
+  /* tensor_in = tensor_in.permute({1, 0, 2}); */
+
+  // SEND TENSOR TO DEVICE
+  // no lock: multiple processes can happen at the same time
+  tensor_in = tensor_in.to(m_device);
+  std::vector<torch::jit::IValue> inputs = {tensor_in};
+
+  // PROCESS TENSOR
+  at::Tensor tensor_out;
+  try {
+    tensor_out = script_method(inputs).toTensor();
+    tensor_out = tensor_out.repeat_interleave(out_ratio).reshape(
+        {n_batches, out_dim, -1});
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << '\n';
+    return;
+  }
+
+  int out_batches(tensor_out.size(0)), out_channels(tensor_out.size(1)),
+      out_n_vec(tensor_out.size(2));
+
+  if (out_n_vec != n_vec) {
+    std::cout << "model output size is not consistent, expected " << n_vec
+              << " samples, got " << out_n_vec << "!\n";
+    return;
+  }
+
+  tensor_out = tensor_out.to(CPU);
+  tensor_out = tensor_out.reshape({out_batches * out_channels, -1});
+  auto out_ptr = tensor_out.contiguous().data_ptr<float>();
+
+  memcpy(out_buffer, out_ptr, n_vec * sizeof(float));
 }
 
 }

@@ -13,7 +13,6 @@ NN::NNModelRegistry gModels;
 
 namespace NN {
 
-
 NNModel* getModel(float modelIdx) {
   auto model = gModels.get(static_cast<unsigned short>(modelIdx), true);
   if (model == nullptr)
@@ -34,9 +33,103 @@ void NN::clearOutputs(int nSamples) {
   ClearUnitOutputs(this, nSamples);
 }
 
+
+// PERFORM
+
+#define MODEL_PERFORM_CUSTOM 0
+
+#if MODEL_PERFORM_CUSTOM
+
+void model_perform(NN* nn_instance) {
+  nn_instance->m_model->perform(
+        nn_instance->m_inModel, nn_instance->m_outModel, nn_instance->m_bufferSize,
+        nn_instance->m_method, 1);
+}
+void model_perform_loop(NN* nn_instance) {
+  while (!nn_instance->m_should_stop_perform_thread) {
+    if (nn_instance->m_data_available_lock.try_acquire_for(
+            std::chrono::milliseconds(200))) {
+      model_perform(nn_instance);
+      nn_instance->m_result_available_lock.release();
+    }
+  }
+}
+
+#else
+
+void model_perform(NN* nn_instance) {
+  std::vector<float *> in_model, out_model;
+  for (int c(0); c < nn_instance->m_inDim; ++c)
+    in_model.push_back(&nn_instance->m_inModel[nn_instance->m_bufferSize * c]);
+  for (int c(0); c < nn_instance->m_outDim; ++c)
+    out_model.push_back(&nn_instance->m_outModel[nn_instance->m_bufferSize * c]);
+      nn_instance->m_model->perform(in_model, out_model,
+                                    nn_instance->m_bufferSize,
+                                    nn_instance->m_method->name, 1);
+}
+void model_perform_loop(NN *nn_instance) {
+  std::vector<float *> in_model, out_model;
+  for (int c(0); c < nn_instance->m_inDim; ++c)
+    in_model.push_back(&nn_instance->m_inModel[nn_instance->m_bufferSize * c]);
+  for (int c(0); c < nn_instance->m_outDim; ++c)
+    out_model.push_back(&nn_instance->m_outModel[nn_instance->m_bufferSize * c]);
+  while (!nn_instance->m_should_stop_perform_thread) {
+    if (nn_instance->m_data_available_lock.try_acquire_for(
+            std::chrono::milliseconds(200))) {
+      nn_instance->m_model->perform(in_model, out_model,
+                                    nn_instance->m_bufferSize,
+                                    nn_instance->m_method->name, 1);
+      nn_instance->m_result_available_lock.release();
+    }
+  }
+}
+
+#endif // def MODEL_PERFORM_CUSTOM
+
+void NN::next(int nSamples) {
+  if (!m_model->is_loaded() || mDone || !m_enabled) {
+    ClearUnitOutputs(this, nSamples);
+    return;
+  };
+
+  // copy inputs to circular buffer
+  for (int c(0); c < m_inDim; ++c) {
+    m_inBuffer[c].put(in(UGenInputs::inputs + c), bufferSize());
+  }
+
+  if (m_inBuffer[0].full()) {
+
+    if (!m_useThread) {
+
+      for (int c(0); c < m_inDim; ++c)
+        m_inBuffer[c].get(&m_inModel[c * m_bufferSize], m_bufferSize);
+
+      model_perform(this);
+
+      for (int c(0); c < m_outDim; ++c)
+        m_outBuffer[c].put(&m_outModel[c * m_bufferSize], m_bufferSize);
+    } else if (m_result_available_lock.try_acquire()) {
+      // TRANSFER MEMORY BETWEEN INPUT CIRCULAR BUFFER AND MODEL BUFFER
+      for (int c(0); c < m_inDim; ++c)
+        m_inBuffer[c].get(&m_inModel[c * m_bufferSize], m_bufferSize);
+      // TRANSFER MEMORY BETWEEN OUTPUT CIRCULAR BUFFER AND MODEL BUFFER
+      for (int c(0); c < m_outDim; ++c)
+        m_outBuffer[c].put(&m_outModel[c * m_bufferSize], m_bufferSize);
+      // SIGNAL PERFORM THREAD THAT DATA IS AVAILABLE
+      m_data_available_lock.release();
+    }
+  }
+
+  // copy circular buf to out
+  for (int c(0); c < m_outDim; ++c)
+    m_outBuffer[c].get(out(c), bufferSize());
+}
+
 NN::NN(): 
   m_model(nullptr), m_method(nullptr), 
   m_compute_thread(nullptr), m_useThread(true),
+  m_should_stop_perform_thread(false),
+  m_data_available_lock(0), m_result_available_lock(1),
   m_enabled(false),
   m_inBuffer(nullptr), m_outBuffer(nullptr),
   m_inModel(nullptr), m_outModel(nullptr)
@@ -60,7 +153,7 @@ NN::NN():
   }
 
   if (bufferSize() > m_bufferSize) {
-    Print("NNBackend: blockSize(%d) larger than model bufferSize(%d), disabling\n", bufferSize(), m_bufferSize);
+    Print("NNUGen: blockSize(%d) larger than model bufferSize(%d), disabling\n", bufferSize(), m_bufferSize);
     mDone = true;
     set_calc_function<NN, &NN::clearOutputs>();
     return;
@@ -69,13 +162,16 @@ NN::NN():
   /* Print("NN: Ctor done\n"); */
   // don't use external thread on NRT
   if (!mWorld->mRealTime) m_useThread = false;
-  m_enabled = true;
+  if (m_useThread)
+    m_compute_thread = std::make_unique<std::thread>(model_perform_loop, this);
   mCalcFunc = make_calc_function<NN, &NN::next>();
-  clearOutputs(1);
+  m_enabled = true;
 }
 
 NN::~NN() {
   /* Print("NN: Dtor\n"); */
+  m_should_stop_perform_thread = true;
+  if (m_compute_thread) m_compute_thread->join();
   freeBuffers();
 }
 
@@ -110,15 +206,16 @@ void freeRingBuffer(World* world, RingBuf* buf) {
 bool NN::allocBuffers() {
 
   m_bufferSize = in0(UGenInputs::bufSize);
-  if (m_bufferSize < 0) {
+  if (m_bufferSize <= 0) {
     // NO THREAD MODE
     m_useThread = false;
     m_bufferSize = m_model->m_higherRatio;
   } else if (m_bufferSize < m_model->m_higherRatio) {
     m_bufferSize = m_model->m_higherRatio;
-    /* Print("NN: buffer size to small, switching to %d.\n", m_bufferSize); */
+    Print("NNUGen: buffer size to small, switching to %d.\n", m_bufferSize);
   } else {
     m_bufferSize = NEXTPOWEROFTWO(m_bufferSize);
+    Print("NNUGen: rounding buffer size %d.\n", m_bufferSize);
   }
 
   m_inBuffer = allocRingBuffer(mWorld, m_bufferSize, m_inDim);
@@ -136,7 +233,6 @@ bool NN::allocBuffers() {
 }
 
 void NN::freeBuffers() {
-  if (m_compute_thread) m_compute_thread->join();
   /* Print("NN: freeing buffers\n"); */
   RTFree(mWorld, m_inModel);
   RTFree(mWorld, m_outModel);
@@ -144,60 +240,6 @@ void NN::freeBuffers() {
   freeRingBuffer(mWorld, m_outBuffer);
 }
 
-// PERFORM
-
-void model_perform(NN* nn_instance) {
-  /* Print("NN: performing\n"); */
-  auto m_bufferSize = nn_instance->m_bufferSize;
-  std::vector<float*> in_model, out_model;
-  for (int c(0); c < nn_instance->m_inDim; c++)
-    in_model.push_back(&nn_instance->m_inModel[c * m_bufferSize]);
-  for (int c(0); c < nn_instance->m_outDim; c++)
-    out_model.push_back(&nn_instance->m_outModel[c * m_bufferSize]);
-  nn_instance->m_model->perform(in_model, out_model, nn_instance->m_bufferSize,
-                                nn_instance->m_method->name, 1);
-}
-
-void NN::next(int nSamples) {
-  if (!m_model->is_loaded() || mDone || !m_enabled) {
-    ClearUnitOutputs(this, nSamples);
-    return;
-  };
-
-  // copy inputs to circular buffer
-  for (int c(0); c < m_inDim; ++c) {
-    const float* samples = in(UGenInputs::inputs + c);
-    m_inBuffer[c].put(samples, bufferSize());
-  }
-
-  if (m_inBuffer[0].full()) {
-
-    if (m_useThread && m_compute_thread)
-      m_compute_thread->join();
-
-    // transfer samples from inBuffer to model inBuf
-    for (int c(0); c < m_inDim; ++c)
-      m_inBuffer[c].get(&m_inModel[c * m_bufferSize], m_bufferSize);
-
-    auto a = &m_inModel[1];
-
-    if(!m_useThread)
-      model_perform(this);
-
-    // transfer samples from model outBuf to outBuffer
-    for (int c(0); c < m_outDim; ++c)
-      m_outBuffer[c].put(&m_outModel[c * m_bufferSize], m_bufferSize);
-
-    if(m_useThread)
-      m_compute_thread = std::make_unique<std::thread>(model_perform, this);
-  }
-
-  // copy circular buf to out
-  for (int c(0); c < m_outDim; ++c) {
-    float* samples = out(c);
-    m_outBuffer[c].get(samples, bufferSize());
-  }
-}
 
 // PARAMS
 

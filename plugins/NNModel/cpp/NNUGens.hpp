@@ -25,6 +25,9 @@ public:
   int m_bufferSize;
   float* m_inModel;
   float* m_outModel;
+  bool m_should_stop_perform_thread;
+  std::binary_semaphore m_data_available_lock, m_result_available_lock;
+
 
 private:
   enum UGenInputs { modelIdx=0, methodIdx, bufSize, inputs };

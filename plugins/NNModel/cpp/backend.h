@@ -1,4 +1,4 @@
-// backend.h from nn_tilde
+// backend.h from nn_tilde: only added friend NNModel
 
 #pragma once
 #include <mutex>
