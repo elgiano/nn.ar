@@ -16,6 +16,7 @@ public:
   ~NN();
 
   void next(int nSamples);
+  void freeBuffers();
 
 
   NNModel* m_model;
@@ -25,7 +26,6 @@ public:
   int m_bufferSize;
   float* m_inModel;
   float* m_outModel;
-  bool m_should_stop_perform_thread;
   std::binary_semaphore m_data_available_lock, m_result_available_lock;
 
 
@@ -34,14 +34,13 @@ private:
   void clearOutputs(int nSamples);
   bool loadModel();
   bool allocBuffers();
-  void freeBuffers();
 
   RingBuf* m_inBuffer;
   RingBuf* m_outBuffer;
   bool m_enabled;
   bool m_useThread;
 
-  std::unique_ptr<std::thread> m_compute_thread;
+  std::jthread* m_compute_thread;
 };
 
 

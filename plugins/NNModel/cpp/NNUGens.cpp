@@ -42,14 +42,15 @@ void model_perform(NN* nn_instance) {
         nn_instance->m_inModel, nn_instance->m_outModel, nn_instance->m_bufferSize,
         nn_instance->m_method, 1);
 }
-void model_perform_loop(NN* nn_instance) {
-  while (!nn_instance->m_should_stop_perform_thread) {
+void model_perform_loop(std::stop_token stoken, NN* nn_instance) {
+  while (!stoken.stop_requested()) {
     if (nn_instance->m_data_available_lock.try_acquire_for(
             std::chrono::milliseconds(200))) {
       model_perform(nn_instance);
       nn_instance->m_result_available_lock.release();
     }
   }
+  nn_instance->freeBuffers();
 }
 
 #else
@@ -64,13 +65,13 @@ void model_perform(NN* nn_instance) {
                                     nn_instance->m_bufferSize,
                                     nn_instance->m_method->name, 1);
 }
-void model_perform_loop(NN *nn_instance) {
+void model_perform_loop(std::stop_token stoken, NN *nn_instance) {
   std::vector<float *> in_model, out_model;
   for (int c(0); c < nn_instance->m_inDim; ++c)
     in_model.push_back(&nn_instance->m_inModel[nn_instance->m_bufferSize * c]);
   for (int c(0); c < nn_instance->m_outDim; ++c)
     out_model.push_back(&nn_instance->m_outModel[nn_instance->m_bufferSize * c]);
-  while (!nn_instance->m_should_stop_perform_thread) {
+  while (!stoken.stop_requested()) {
     if (nn_instance->m_data_available_lock.try_acquire_for(
             std::chrono::milliseconds(200))) {
       nn_instance->m_model->perform(in_model, out_model,
@@ -79,6 +80,7 @@ void model_perform_loop(NN *nn_instance) {
       nn_instance->m_result_available_lock.release();
     }
   }
+  nn_instance->freeBuffers();
 }
 
 #endif // def MODEL_PERFORM_CUSTOM
@@ -125,7 +127,6 @@ void NN::next(int nSamples) {
 NN::NN(): 
   m_model(nullptr), m_method(nullptr), 
   m_compute_thread(nullptr), m_useThread(true),
-  m_should_stop_perform_thread(false),
   m_data_available_lock(0), m_result_available_lock(1),
   m_enabled(false),
   m_inBuffer(nullptr), m_outBuffer(nullptr),
@@ -156,20 +157,24 @@ NN::NN():
     return;
   }
 
-  /* Print("NN: Ctor done\n"); */
   // don't use external thread on NRT
   if (!mWorld->mRealTime) m_useThread = false;
   if (m_useThread)
-    m_compute_thread = std::make_unique<std::thread>(model_perform_loop, this);
+    m_compute_thread = new std::jthread(model_perform_loop, this);
   mCalcFunc = make_calc_function<NN, &NN::next>();
   m_enabled = true;
+  /* Print("NN: Ctor done\n"); */
 }
 
 NN::~NN() {
   /* Print("NN: Dtor\n"); */
-  m_should_stop_perform_thread = true;
-  if (m_compute_thread) m_compute_thread->join();
-  freeBuffers();
+  if (m_compute_thread) {
+    // don't wait for join, it would stall the dsp chain
+    // thread calls freeBuffers() when stopped
+    m_compute_thread->request_stop();
+  } else {
+    freeBuffers();
+  }
 }
 
 // BUFFERS
@@ -211,8 +216,11 @@ bool NN::allocBuffers() {
     m_bufferSize = m_model->m_higherRatio;
     Print("NNUGen: buffer size to small, switching to %d.\n", m_bufferSize);
   } else {
-    m_bufferSize = NEXTPOWEROFTWO(m_bufferSize);
-    Print("NNUGen: rounding buffer size %d.\n", m_bufferSize);
+    int pow2 = NEXTPOWEROFTWO(m_bufferSize);
+    if (m_bufferSize != pow2) {
+      m_bufferSize = pow2;
+      Print("NNUGen: rounding buffer size %d.\n", m_bufferSize);
+    }
   }
 
   m_inBuffer = allocRingBuffer(mWorld, m_bufferSize, m_inDim);
@@ -231,10 +239,10 @@ bool NN::allocBuffers() {
 
 void NN::freeBuffers() {
   /* Print("NN: freeing buffers\n"); */
-  RTFree(mWorld, m_inModel);
-  RTFree(mWorld, m_outModel);
   freeRingBuffer(mWorld, m_inBuffer);
   freeRingBuffer(mWorld, m_outBuffer);
+  RTFree(mWorld, m_inModel);
+  RTFree(mWorld, m_outModel);
 }
 
 
