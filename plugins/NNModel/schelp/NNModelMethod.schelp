@@ -20,6 +20,16 @@ requires only one input, it can be provided outside an array.
 
 returns:: an Array of link::Classes/OutputProxy:: of size link::NNModelMethod#-numOutputs::.
 
+method::warmup
+Performs one processing pass for this method, not in real-time, because
+model optimizations
+happening in its first execution can be heavy on the audio chain (see
+link::Classes/NN#First-execution warmup::).
+
+note:: this method waits for the warmup to be completed using
+link::Classes/Server#-sync::. If this method is not executed in a
+link::Classes/Routine::, it forks one.::
+
 method::name
 human-readable name
 method::idx

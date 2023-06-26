@@ -87,5 +87,8 @@ NN {
 	*dumpInfoMsg { |modelIdx, outFile|
 		^["/cmd", "/nn_query", modelIdx ? -1, outFile ? ""]
 	}
+	*warmupMsg { |modelId, methodId(-1)|
+		^["/cmd", "/nn_warmup", modelId, methodId]
+	}
 
 }

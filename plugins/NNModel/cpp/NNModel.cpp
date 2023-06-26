@@ -98,7 +98,7 @@ bool NNModelRegistry::dumpAllInfo(const char* filename) const {
 }
 
 
-NNModel::NNModel(): m_backend(), m_methods(), m_path() {}
+NNModel::NNModel(): m_backend(), m_methods(), m_path(), m_higherRatio(0) {}
 
 bool NNModel::load(const char* path) {
   Print("NNBackend: loading %s\n", path);
@@ -113,6 +113,8 @@ bool NNModel::load(const char* path) {
   // cache path
   m_path = path;
 
+  m_higherRatio = m_backend.get_higher_ratio();
+
   // cache methods
   if (m_methods.size() > 0) m_methods.clear();
   for (std::string name: m_backend.get_available_methods()) {
@@ -121,8 +123,8 @@ bool NNModel::load(const char* path) {
     if (params.size() == 0) continue;
     NNModelMethod m(name, params);
     m_methods.push_back(m);
+    /* warmup_method(&m); */
   }
-  m_higherRatio = m_backend.get_higher_ratio();
 
   // cache attributes
   if (m_attributes.size() > 0) m_attributes.clear();
@@ -313,4 +315,32 @@ void NNModel::perform(
   memcpy(out_buffer, out_ptr, n_vec * sizeof(float));
 }
 
+void NNModel::warmup_method(const NNModelMethod* method) const {
+
+  Print("NNBackend: warming up method '%s'\n", method->name.c_str());
+  c10::InferenceMode guard;
+  int in_dim = method->inDim;
+  int in_size = m_higherRatio / method->inRatio;
+  auto script_method = m_backend.m_model.get_method(method->name);
+  auto m_device = m_backend.m_device;
+
+  /* if (!m_loaded) return; */
+
+  auto tensor_in = torch::zeros({1, in_dim, in_size});
+    /* std::cout << "hr: " << m_higherRatio << " ratio: " << method->inRatio << std::endl; */
+    /* std::cout << "in: " << tensor_in.sizes() << std::endl; */
+  // SEND TENSOR TO DEVICE
+  // no lock: multiple processes can happen at the same time
+  tensor_in = tensor_in.to(m_device);
+  std::vector<torch::jit::IValue> inputs = {tensor_in};
+
+  // PROCESS TENSOR
+  try {
+    script_method(inputs);
+    /* std::cout << "out: " << tensor_out.sizes() << std::endl; */
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << '\n';
+    return;
+  }
+}
 }

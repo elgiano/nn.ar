@@ -11,8 +11,7 @@ inline char* copyStrToBuf(char** buf, const char* str) {
   return res;
 }
 
-namespace NN {
-namespace Cmd {
+namespace NN::Cmd {
 
 // /cmd /nn_set str str str
 struct LoadCmdData {
@@ -126,10 +125,7 @@ public:
 
     auto dataSize = sizeof(QueryCmdData) + strlen(outFile) + 1;
     QueryCmdData* cmdData = (QueryCmdData*) (world ? RTAlloc(world, dataSize) : NRTAlloc(dataSize));
-    if (cmdData == nullptr) {
-      Print("nn_query: alloc failed.\n");
-      return nullptr;
-    }
+    if (cmdData == nullptr) { Print("nn_query: alloc failed.\n"); return nullptr; }
     cmdData->modelIdx = modelIdx;
     char* data = (char*) (cmdData + 1);
     cmdData->outFile = copyStrToBuf(&data, outFile);
@@ -156,6 +152,49 @@ bool nn_query(World* world, void* inData) {
   return true;
 }
 
+// /cmd /nn_warmup int int
+struct WarmupCmdData {
+public:
+  int modelIdx;
+  int methodIdx;
+
+  static WarmupCmdData* alloc(sc_msg_iter* args, World* world=nullptr) {
+    int modelIdx = args->geti(-1);
+    int methodIdx = args->geti(-1);
+
+    auto dataSize = sizeof(WarmupCmdData);
+    WarmupCmdData* cmdData = (WarmupCmdData*) (world ? RTAlloc(world, dataSize) : NRTAlloc(dataSize));
+    if (cmdData == nullptr) { Print("nn_warmup: alloc failed.\n"); return nullptr; }
+    cmdData->modelIdx = modelIdx;
+    cmdData->methodIdx = methodIdx;
+    
+    return cmdData;
+  }
+
+  WarmupCmdData() = delete;
+};
+
+bool nn_warmup(World* world, void* inData) {
+  WarmupCmdData* data = (WarmupCmdData*)inData;
+  int modelIdx = data->modelIdx;
+  int methodIdx = data->methodIdx;
+  if (modelIdx < 0) {
+    Print("nn_warmup: invalid model index %d\n", modelIdx);
+    return true;
+  }
+  const auto model = gModels.get(static_cast<unsigned short>(modelIdx), true);
+  if (model) {
+    if (methodIdx < 0) {
+      // warmup all methods
+      for(auto method: model->m_methods) model->warmup_method(&method);
+    } else {
+      auto method = model->getMethod(methodIdx, true);
+      if (method) model->warmup_method(method);
+    }
+  }
+  return true;
+}
+
 void nrtFree(World*, void* data) { NRTFree(data); }
 
 template<class CmdData, auto cmdFn>
@@ -171,10 +210,12 @@ void asyncCmd(World* world, void* inUserData, sc_msg_iter* args, void* replyAddr
     nrtFree, 0, 0);
 }
 
-PlugInCmdFunc cmd_nn_load = asyncCmd<LoadCmdData, nn_load>;
-PlugInCmdFunc cmd_nn_set = asyncCmd<SetCmdData, nn_set>;
-PlugInCmdFunc cmd_nn_query = asyncCmd<QueryCmdData, nn_query>;
+void definePlugInCmds() {
+  DefinePlugInCmd("/nn_load", asyncCmd<LoadCmdData, nn_load>, nullptr);
+  DefinePlugInCmd("/nn_set", asyncCmd<SetCmdData, nn_set>, nullptr);
+  DefinePlugInCmd("/nn_query", asyncCmd<QueryCmdData, nn_query>, nullptr);
+  DefinePlugInCmd("/nn_warmup", asyncCmd<WarmupCmdData, nn_warmup>, nullptr);
+}
 
 } // namespace NN::Cmd
 
-} // namespace NN

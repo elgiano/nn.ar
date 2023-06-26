@@ -44,6 +44,8 @@ public:
   // custom perform
   void perform(float* in_buffer, float* out_buffer, int n_vec, const NNModelMethod* method, int n_batches) const;
 
+  void warmup_method(const NNModelMethod* method) const;
+
   std::string m_path;
   unsigned short m_idx;
   std::vector<NNModelMethod> m_methods;

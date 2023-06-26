@@ -94,6 +94,12 @@ NNModel {
 		forkIfNeeded { server.sync(bundles: [msg]) };
 	}
 
+	warmup {
+		forkIfNeeded {
+			server.sync(bundles: [NN.warmupMsg(this.idx, -1)]);
+		}
+	}
+
 	dumpInfoMsg { |outFile| ^NN.dumpInfoMsg(this.idx, outFile) }
 	dumpInfo { |outFile|
 		var msg = this.dumpInfoMsg(outFile);
@@ -178,6 +184,12 @@ NNModelMethod {
 				.format(this.name, this.numInputs, inputs.size)).throw
 		};
 		^NNUGen.ar(model.idx, idx, bufferSize, this.numOutputs, inputs)
+	}
+
+	warmup {
+		forkIfNeeded {
+			model.server.sync(bundles: [NN.warmupMsg(model.idx, this.idx)]);
+		}
 	}
 
 	printOn { |stream|

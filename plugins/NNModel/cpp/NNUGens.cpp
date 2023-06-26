@@ -294,10 +294,8 @@ PluginLoad(NNUGens) {
   // Plugin magic
   ft = inTable;
 
-  DefinePlugInCmd("/nn_load", NN::Cmd::cmd_nn_load, nullptr);
-  DefinePlugInCmd("/nn_set", NN::Cmd::cmd_nn_set, nullptr);
-  DefinePlugInCmd("/nn_query", NN::Cmd::cmd_nn_query, nullptr);
   registerUnit<NN::NN>(ft, "NNUGen", false);
   registerUnit<NN::NNSet>(ft, "NNSet", false);
   registerUnit<NN::NNGet>(ft, "NNGet", false);
+  NN::Cmd::definePlugInCmds();
 }

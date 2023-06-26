@@ -21,7 +21,7 @@ with it by creating UGens and getting/setting attributes.
 subsection::Real-time processing
 You can get UGens for each models' method like this:
 code::
-	NN(\modelName, \methodName).ar
+	NN(\modelName, \methodName).ar(blockSize, inputs)
 ::
 Each NN().ar UGen is specific to a loaded model and method. This is because
 different models and methods require different numbers of inputs and outputs.
@@ -40,14 +40,19 @@ a = Score([
 	// NN.nrt reads that info file and makes an osc bundle
 	[0.0] ++ NN.nrt("models.yaml") {
 		// load models
-		NN.load(\mrcl, "~/rave/mrcl.ts");
-		NN.load(\pv, "~/rave/rave2/pv_0291790207_streaming.ts");
-		// make synthdefs: use .doSend(s) to get those SynthDefs into the bundle
-		SynthDef(\test) { |out=0|
-			Out.ar(out, NN(\mrcl, \forward).ar(512, WhiteNoise.ar))
+		NN.load(\a, "path/to/model_a.ts");
+		NN.load(\b, "path/to/model_b.ts");
+		// synthdefs: use .doSend(s) to get them into the bundle
+		SynthDef(\nnfb) { |out=0|
+			var fb = LocalIn.ar(1);
+			var sig = NN(\b, \forward).ar(512,
+					NN(\a, \forward).ar(512, fb)
+			);
+			LocalOut.ar(sig);
+			Out.ar(out, sig);
 		}.doSend(s);
 	},
-	[0.0, Synth.basicNew(\test).newMsg],
+	[0.0, Synth.basicNew(\nnfb).newMsg],
 	[30.0]
 ]).recordNRT(
 	outputFilePath: "gen.wav",
@@ -57,7 +62,7 @@ a = Score([
 )
 ::
 
-In the NN.nrt() { ... } block, the syntax to load methods and create SynthDefs
+In the code::NN.nrt() { ... }:: block, the syntax to load methods and create SynthDefs
 is almost the same as in real-time, with the only difference being that
 SynthDefs need to be "sent" to server with code::.doSend(s):: instead of other
 methods. 
@@ -72,10 +77,8 @@ the real-time and any NRT servers that are launched.
 code::
 Score([
 	[0.0] ++ NN.models.collect(_.loadMsg).postln,
-	[0.0, ["/d_recv", SynthDef(\test) { |out=0|
-		Out.ar(out, NN(\rave, \forward).ar(512, WhiteNoise.ar))
-	}.asBytes]],
-	[0.0, Synth.basicNew(\test).newMsg],
+	[0.0, ["/d_recv", SynthDescLib.global[\nnar].asBytes]],
+	[0.0, Synth.basicNew(\nnar).newMsg],
 	[30.0]
 ]).recordNRT(
 	outputFilePath: "gen.wav",
@@ -84,6 +87,34 @@ Score([
 	action: { "done".postln }
 )
 ::
+
+subsection:: First-execution warmup
+If after a model is loaded, its methods are very slow for the first execution,
+and then become much faster, it might be due to torchscript performing
+optimization during the first pass. NN offers a method to perform this first
+"warmup" pass non-realtime:
+
+code::
+fork {
+	NN.load(\model, "path/to/model.ts");
+	s.sync;	
+	{ NN(\model, \forward).ar(-1, WhiteNoise.ar) }.play
+	// long dropouts at first, then fine
+}
+
+
+fork {
+	NN.load(\model2, "path/to/model.ts");
+	NN(\model2).warmup;
+	{ NN(\model2, \forward).ar(-1, WhiteNoise.ar) }.play
+	// no initial dropouts
+}
+
+// do right after load
+NN.load(\model2, "path/to/model.ts", action:_.warmup);
+::
+See link::Classes/NNModel#-warmup:: to warmup all the methods a model has, and
+link::Classes/NNModelMethod#-warmup:: to warm up a specific one.
 
 classmethods::
 
@@ -120,8 +151,10 @@ otherwise a link::Classes/NNModelMethod::. If the requested model or method is
 not found, an error is thrown.
 
 code::
-	NN(\mymodel); // -> NNModel(mymodel ...)
-	NN(\mymodel, \forward); // -> NNModelMethod(forward ...)
+	NN(\mymodel);
+	// -> NNModel(mymodel ...)
+	NN(\mymodel, \forward);
+	// -> NNModelMethod(forward ...)
 
 	NN(\blah);
 	// sERROR: NNModel: model 'blah' not found
