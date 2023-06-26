@@ -60,6 +60,8 @@ public:
 
 private:
   enum UGenInputs { value=NNAttrInputs::attrIdx+1 };
+  bool m_init;
+  float m_lastVal;
 };
 
 class NNGet : public NNAttrUGen {

@@ -271,8 +271,13 @@ NNSet::NNSet() {
 void NNSet::next(int nSamples) {
   Unit* unit = this;
   ClearUnitOutputs;
-  if (mDone) { return; }
-  m_model->set(m_attrIdx, in0(UGenInputs::value));
+  if (mDone) { return; };
+  float val = in0(UGenInputs::value);
+  if (!m_init || val != m_lastVal) {
+    m_model->set(m_attrIdx, val);
+    m_lastVal = val;
+    m_init = true;
+  }
 }
 
 NNGet::NNGet() {

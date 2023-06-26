@@ -20,7 +20,7 @@ NNSet : UGen {
 
 	*kr { |key, attributeName, input|
 		var model, attrIdx;
-		model = NNModel(key) ?? { 
+		model = NN(key) ?? { 
 			Error("NNSet: model % not found".format(key)).throw
 		};
 		attrIdx = model.attrIdx(attributeName.asSymbol) ?? {
