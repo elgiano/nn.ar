@@ -4,6 +4,10 @@
 #include "NNModel.hpp"
 #include "SC_PlugIn.hpp"
 #include "rt_circular_buffer.h"
+#include <chrono>
+#include <semaphore>
+#include <string>
+#include <thread>
 
 namespace NN {
 
