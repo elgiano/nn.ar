@@ -71,7 +71,7 @@ jobs:
       if: runner.os == 'macOS'
       uses: maxim-lobanov/setup-xcode@v1.5.1
       with:
-          xcode-version: 'latest-stable'
+          xcode-version: '15'
       # Build
     - name: Create Build Environment
       shell: bash
