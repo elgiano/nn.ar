@@ -42,8 +42,8 @@ void model_perform(NN* nn_instance) {
         nn_instance->m_inModel, nn_instance->m_outModel, nn_instance->m_bufferSize,
         nn_instance->m_method, 1);
 }
-void model_perform_loop(std::stop_token stoken, NN* nn_instance) {
-  while (!stoken.stop_requested()) {
+void model_perform_loop(NN* nn_instance) {
+  while (!nn_instance->m_should_stop_perform_thread) {
     if (nn_instance->m_data_available_lock.try_acquire_for(
             std::chrono::milliseconds(200))) {
       model_perform(nn_instance);
@@ -65,13 +65,13 @@ void model_perform(NN* nn_instance) {
                                     nn_instance->m_bufferSize,
                                     nn_instance->m_method->name, 1);
 }
-void model_perform_loop(std::stop_token stoken, NN *nn_instance) {
+void model_perform_loop(NN *nn_instance) {
   std::vector<float *> in_model, out_model;
   for (int c(0); c < nn_instance->m_inDim; ++c)
     in_model.push_back(&nn_instance->m_inModel[nn_instance->m_bufferSize * c]);
   for (int c(0); c < nn_instance->m_outDim; ++c)
     out_model.push_back(&nn_instance->m_outModel[nn_instance->m_bufferSize * c]);
-  while (!stoken.stop_requested()) {
+  while (!nn_instance->m_should_stop_perform_thread) {
     if (nn_instance->m_data_available_lock.try_acquire_for(
             std::chrono::milliseconds(200))) {
       nn_instance->m_model->perform(in_model, out_model,
@@ -128,6 +128,7 @@ NN::NN():
   m_model(nullptr), m_method(nullptr), 
   m_compute_thread(nullptr), m_useThread(true),
   m_data_available_lock(0), m_result_available_lock(1),
+  m_should_stop_perform_thread(false),
   m_enabled(false),
   m_inBuffer(nullptr), m_outBuffer(nullptr),
   m_inModel(nullptr), m_outModel(nullptr)
@@ -160,7 +161,7 @@ NN::NN():
   // don't use external thread on NRT
   if (!mWorld->mRealTime) m_useThread = false;
   if (m_useThread)
-    m_compute_thread = new std::jthread(model_perform_loop, this);
+    m_compute_thread = new std::thread(model_perform_loop, this);
   mCalcFunc = make_calc_function<NN, &NN::next>();
   m_enabled = true;
   /* Print("NN: Ctor done\n"); */
@@ -171,7 +172,7 @@ NN::~NN() {
   if (m_compute_thread) {
     // don't wait for join, it would stall the dsp chain
     // thread calls freeBuffers() when stopped
-    m_compute_thread->request_stop();
+    m_should_stop_perform_thread = true;
   } else {
     freeBuffers();
   }

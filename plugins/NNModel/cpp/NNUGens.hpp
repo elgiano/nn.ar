@@ -19,15 +19,14 @@ public:
   void freeBuffers();
 
 
+  float* m_inModel;
+  float* m_outModel;
   NNModel* m_model;
   NNModelMethod* m_method;
   int m_inDim, m_outDim;
-
   int m_bufferSize;
-  float* m_inModel;
-  float* m_outModel;
   std::binary_semaphore m_data_available_lock, m_result_available_lock;
-
+  bool m_should_stop_perform_thread;
 
 private:
   enum UGenInputs { modelIdx=0, methodIdx, bufSize, inputs };
@@ -40,7 +39,7 @@ private:
   bool m_enabled;
   bool m_useThread;
 
-  std::jthread* m_compute_thread;
+  std::thread* m_compute_thread;
 };
 
 
