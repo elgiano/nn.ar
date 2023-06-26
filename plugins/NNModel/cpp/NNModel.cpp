@@ -2,9 +2,9 @@
 #include <cstdio>
 #include <fstream>
 #include <ostream>
-
 #include "SC_InterfaceTable.h"
-extern "C" InterfaceTable* ft;
+
+extern InterfaceTable* ft;
 
 namespace NN {
 

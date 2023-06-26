@@ -3,8 +3,8 @@
 #include "SC_InterfaceTable.h"
 #include "SC_PlugIn.hpp"
 
-extern "C" InterfaceTable* ft;
-extern "C" NN::NNModelRegistry gModels;
+extern InterfaceTable* ft;
+extern NN::NNModelRegistry gModels;
 
 inline char* copyStrToBuf(char** buf, const char* str) {
   char* res = strcpy(*buf, str); *buf += strlen(str) + 1;
