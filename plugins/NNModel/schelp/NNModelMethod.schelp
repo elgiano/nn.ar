@@ -12,7 +12,8 @@ instancemethods::
 method::ar
 Returns a link::Classes/NNUGen:: for this model method.
 argument::blockSize
-The number of samples to process at the same time.
+The number of samples to process at the same time. Set to choose the minimum
+buffer size available and to -1 to also disable processing on separate thread.
 argument::inputs
 The array of inputs to the process. It must be the correct size
 (link::NNModelMethod#-numInputs::), otherwise an Error is thrown. If the model

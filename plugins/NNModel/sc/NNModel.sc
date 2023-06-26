@@ -177,7 +177,7 @@ NNModelMethod {
     ^this.class.newCopyArgs(model, name, idx, numInputs, numOutputs)
   }
 
-	ar { |bufferSize, inputs|
+	ar { |bufferSize=0, inputs|
 		inputs = inputs.asArray;
 		if (inputs.size != this.numInputs) {
 			Error("NNModel: method % has % inputs, but was given %."

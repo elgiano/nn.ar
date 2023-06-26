@@ -208,9 +208,11 @@ void freeRingBuffer(World* world, RingBuf* buf) {
 bool NN::allocBuffers() {
 
   m_bufferSize = in0(UGenInputs::bufSize);
-  if (m_bufferSize <= 0) {
+  if (m_bufferSize < 0) {
     // NO THREAD MODE
     m_useThread = false;
+    m_bufferSize = m_model->m_higherRatio;
+  } else if (m_bufferSize == 0) {
     m_bufferSize = m_model->m_higherRatio;
   } else if (m_bufferSize < m_model->m_higherRatio) {
     m_bufferSize = m_model->m_higherRatio;
