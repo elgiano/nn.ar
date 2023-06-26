@@ -66,11 +66,12 @@ jobs:
         $wc = New-Object System.Net.WebClient
         $wc.DownloadFile('${{ matrix.torch }}', 'libtorch.zip')
         7z x libtorch.zip
+
     - name: Set up Xcode
       if: runner.os == 'macOS'
-      uses: actions/setup-xcode@v1
+      uses: maxim-lobanov/setup-xcode@v1.5.1
       with:
-          xcode-version: '15'
+          xcode-version: 'latest-stable'
       # Build
     - name: Create Build Environment
       shell: bash
