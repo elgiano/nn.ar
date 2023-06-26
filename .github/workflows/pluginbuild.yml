@@ -21,12 +21,12 @@ jobs:
             torch: https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-2.0.1%2Bcpu.zip
 
           - name: 'macOS-x64'
-            os: macos-latest
+            os: macos-13
             torch: https://download.pytorch.org/libtorch/cpu/libtorch-macos-2.0.1.zip
 
           - name: 'macOS-arm64'
             arch: arm64
-            os: macos-latest
+            os: macos-13
 
     env:
       SC_PATH: ${{ github.workspace }}/supercollider
