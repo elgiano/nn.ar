@@ -8,6 +8,7 @@
 # basic project config
 cmake_minimum_required(VERSION 3.12)
 set(project_name "nn.ar")
+set(dest_dir ${project_name})
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake_modules ${CMAKE_MODULE_PATH})
 set(CMAKE_CXX_STANDARD 20)
 
@@ -54,7 +55,6 @@ option(SCSYNTH "Build plugins for scsynth" ON)
 option(NATIVE "Optimize for native architecture" OFF)
 option(STRICT "Use strict warning flags" OFF)
 option(NOVA_SIMD "Build plugins with nova-simd support." ON)
-
 ####################################################################################################
 # include libraries
 
@@ -65,6 +65,31 @@ endif()
 
 find_package(Torch REQUIRED) # find torch
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+
+find_library(CUSTOM_TORCH NAMES torch PATHS "${CMAKE_PREFIX_PATH}")
+if (CUSTOM_TORCH)
+  set(TORCH_SO "")
+  if (LINUX)
+    file(GLOB TORCH_SO
+      "${TORCH_INSTALL_PREFIX}/lib/libtorch.*"
+      "${TORCH_INSTALL_PREFIX}/lib/libtorch_cpu.*"
+      "${TORCH_INSTALL_PREFIX}/lib/libgomp*"
+      "${TORCH_INSTALL_PREFIX}/lib/libc10*"
+      )
+    set(CMAKE_INSTALL_RPATH "$ORIGIN/ignore")
+  elseif (APPLE)
+    file(GLOB TORCH_SO "${TORCH_INSTALL_PREFIX}/*.dylib")
+    set(CMAKE_INSTALL_RPATH "@executable_path/ignore")
+  elseif (MSVC)
+    file(GLOB TORCH_SO "${TORCH_INSTALL_PREFIX}/lib/*.dll")
+  endif()
+
+  if (TORCH_SO)
+    message("> FOUND custom Torch, libraries will be copied: " "${TORCH_SO}")
+    install(FILES ${TORCH_SO} DESTINATION "${dest_dir}/ignore")
+  endif()
+endif()
+
 ####################################################################################################
 # Begin target NNUGens
 
@@ -89,42 +114,15 @@ set(NNUGens_schelp_files
     plugins/NNModel/schelp/NNSet.schelp
 )
 
-
 sc_add_server_plugin(
-    "nn.ar/" # desination directory
+    "${dest_dir}" # desination directory
     "NNUGens" # target name
     "${NNUGens_cpp_files}"
     "${NNUGens_sc_files}"
     "${NNUGens_schelp_files}"
+    "${TORCH_LIBRARIES}"
 )
 
-if(SCSYNTH)
-  target_link_libraries(NNUGens_scsynth "${TORCH_LIBRARIES}")
-endif()
-if(SUPERNOVA)
-  target_link_libraries(NNUGens_supernova "${TORCH_LIBRARIES}")
-endif()
-
-# The following code block is suggested to be used on Windows.
-# According to https://github.com/pytorch/pytorch/issues/25457,
-# the DLLs need to be copied to avoid memory errors.
-if (MSVC)
-  file(GLOB TORCH_DLLS "${TORCH_INSTALL_PREFIX}/lib/*.dll")
-  if(SCSYNTH)
-  add_custom_command(TARGET NNUGens_scsynth
-                     POST_BUILD
-                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                     ${TORCH_DLLS}
-                     $<TARGET_FILE_DIR:NNUGens_scsynth>)
-  endif()
-  if(SUPERNOVA)
-  add_custom_command(TARGET NNUGens_supernova
-                     POST_BUILD
-                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                     ${TORCH_DLLS}
-                     $<TARGET_FILE_DIR:NNUGens_supernova>)
-  endif()
-endif (MSVC)
 # End target NNModel
 ####################################################################################################
 

@@ -54,12 +54,13 @@ function(sc_add_server_plugin_properties target is_supernova)
     set(all_sc_server_plugins ${all_sc_server_plugins} PARENT_SCOPE)
 endfunction()
 
-function(sc_add_server_plugin dest_dir name cpp sc schelp)
+function(sc_add_server_plugin dest_dir name cpp sc schelp shared_libs)
     if(SCSYNTH)
         set(sy_name "${name}_scsynth")
         add_library(${sy_name} MODULE "${cpp}")
         install(TARGETS ${sy_name} LIBRARY DESTINATION ${dest_dir})
         sc_add_server_plugin_properties(${sy_name} FALSE)
+        target_link_libraries(${sy_name} "${shared_libs}")
         message(STATUS "Added server plugin target ${sy_name}")
     endif()
 
@@ -69,6 +70,7 @@ function(sc_add_server_plugin dest_dir name cpp sc schelp)
         # install scsynth/supernova targets to same dir
         install(TARGETS ${sn_name} LIBRARY DESTINATION ${dest_dir})
         sc_add_server_plugin_properties(${sn_name} TRUE)
+        target_link_libraries(${sn_name} "${shared_libs}")
         message(STATUS "Added server plugin target ${sn_name}")
     endif()
 
