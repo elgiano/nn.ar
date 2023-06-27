@@ -71,8 +71,8 @@ NN(\msprior).get(\temperature) { |val| val.postln }
 - Extract the archive and copy the `nn.ar` folder to your SuperCollider Extensions folder
 
 Note for mac users: binaries are not signed, so you can run the following in SuperCollider to bypass macos security complaints:
-```sclang
-"xattr -d -r %".format((Platform.userExtensionDir +/+ "nn.ar").quote).runInTerminal
+```supercollider
+format("xattr -d -r %", (Platform.userExtensionDir +/+ "nn.ar").quote).runInTerminal
 ```
 
 #### Building from source
