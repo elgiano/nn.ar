@@ -72,10 +72,12 @@ NN(\msprior).get(\temperature) { |val| val.postln }
 
 Note for mac users: binaries are not signed, so you can run the following in SuperCollider to bypass macos security complaints:
 ```supercollider
-format("xattr -d -r %", (Platform.userExtensionDir +/+ "nn.ar").quote).runInTerminal
+runInTerminal("xattr -d -r com.apple.quarantine %".format(Platform.userExtensionDir +/+ "nn.ar"))
+runInTerminal("xattr -d -r com.apple.quarantine %".format(Platform.userExtensionDir +/+ "nn.ar/ignore"))
 ```
 
 #### Building from source
+If you compile SuperCollider from source, or if you want to enable optimizations specific to your machine, you need to build this extension yourself.
 
 Build requirements:
 
@@ -108,6 +110,10 @@ SuperCollider extensions directory: add the option `-DCMAKE_INSTALL_PREFIX=/path
 Note that you can retrieve the Extension path from sclang with `Platform.userExtensionDir`
 
     cmake .. -DCMAKE_INSTALL_PREFIX=/path/to/extensions
+
+To enable platform-specific optimizations:
+
+    cmake .. -DNATIVE=ON
 
 Finally, use CMake to build the project:
 
