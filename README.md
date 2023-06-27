@@ -63,14 +63,25 @@ NN(\msprior).get(\temperature) { |val| val.postln }
 { NNGet.kr(\msprior, \temperature).poll }.play;
 ```
 
+### Installation
 
-### Requirements
+#### Download a pre-built release
+
+- Download the latest release for your OS on the [Releases page](https://github.com/elgiano/nn.ar/releases).
+- Extract the archive and copy the `nn.ar` folder to your SuperCollider Extensions folder
+
+Note for mac users: binaries are not signed, so you can run the following in SuperCollider to bypass macos security complaints:
+```sclang
+"xattr -d -r %".format((Platform.userExtensionDir +/+ "nn.ar").quote).runInTerminal
+```
+
+#### Building from source
+
+Build requirements:
 
 - CMake >= 3.5
 - SuperCollider source code
 - [libtorch](https://pytorch.org/cppdocs/installing.html)
-
-### Building
 
 Clone the project:
 
@@ -102,7 +113,6 @@ Finally, use CMake to build the project:
 
     cmake --build . --config Release
     cmake --build . --config Release --target install
-
 
 
 ### Developing
