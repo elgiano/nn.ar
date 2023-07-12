@@ -6,6 +6,7 @@
 NNModel {
 
 	var <server, <path, <idx, <info, <methods;
+	var <isLoaded=false;
 
 	*new { ^nil }
 
@@ -40,6 +41,7 @@ NNModel {
       // server writes info file: read it
       protect { 
         model.initFromFile(infoFile);
+				ServerBoot.add(model, server);
         action.(model)
       } {
         File.delete(infoFile);
@@ -47,6 +49,10 @@ NNModel {
     };
 
 		^model;
+	}
+
+	doOnServerBoot {
+		server.sendMsg(*this.loadMsg)
 	}
 
   initFromFile { |infoFile|

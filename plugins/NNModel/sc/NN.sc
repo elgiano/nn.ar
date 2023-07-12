@@ -49,7 +49,7 @@ NN {
     if (path.isKindOf(String).not) {
       Error("NN.load: path needs to be a string, got: %").format(path).throw
     };
-    if (model.isNil) {
+    if (model.isNil or: {model.isLoaded.not}) {
       if (this.isNRT) {
         var info =  this.prGetCachedInfo(path) ?? {
           Error("NN.load (nrt): model info not found for %".format(path)).throw;
