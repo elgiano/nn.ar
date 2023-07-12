@@ -41,7 +41,7 @@ NNGet : UGen {
 
 	*kr { |key, attributeName|
 		var model, attrIdx;
-		model = NNModel(key) ?? { 
+		model = NN(key) ?? { 
 			Error("NNGet: model % not found".format(key)).throw
 		};
 		attrIdx = model.attrIdx(attributeName.asSymbol) ?? {
