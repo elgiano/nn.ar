@@ -195,6 +195,37 @@ bool nn_warmup(World* world, void* inData) {
   return true;
 }
 
+// /nn_unload i
+struct UnloadCmdData {
+public:
+  int id;
+
+  static UnloadCmdData* alloc(sc_msg_iter* args, World* world=nullptr) {
+
+    int id = args->geti(-1);
+
+    size_t dataSize = sizeof(UnloadCmdData);
+    UnloadCmdData* cmdData = (UnloadCmdData*) (world ? RTAlloc(world, dataSize) : NRTAlloc(dataSize));
+    if (cmdData == nullptr) {
+      Print("nn_unload: msg data alloc failed.\n");
+      return nullptr;
+    }
+    cmdData->id = id;
+    return cmdData;
+  }
+
+  UnloadCmdData() = delete;
+};
+
+bool nn_unload(World* world, void* inData) {
+  UnloadCmdData* data = (UnloadCmdData*)inData;
+  int id = data->id;
+
+  gModels.unload(id);
+
+  return true;
+}
+
 void nrtFree(World*, void* data) { NRTFree(data); }
 
 template<class CmdData, auto cmdFn>
@@ -215,6 +246,7 @@ void definePlugInCmds() {
   DefinePlugInCmd("/nn_set", asyncCmd<SetCmdData, nn_set>, nullptr);
   DefinePlugInCmd("/nn_query", asyncCmd<QueryCmdData, nn_query>, nullptr);
   DefinePlugInCmd("/nn_warmup", asyncCmd<WarmupCmdData, nn_warmup>, nullptr);
+  DefinePlugInCmd("/nn_unload", asyncCmd<UnloadCmdData, nn_unload>, nullptr);
 }
 
 } // namespace NN::Cmd

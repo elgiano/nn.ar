@@ -79,6 +79,15 @@ NNModel* NNModelRegistry::load(unsigned short id, const char* path) {
   }
 }
 
+void NNModelRegistry::unload(unsigned short id) {
+  auto model = get(id, true);
+  /* Print("NNBackend: loading model %s at idx %d\n", path, id); */
+  if (model == nullptr) return;
+
+  models.erase(id);
+  delete model;
+}
+
 bool NNModelRegistry::dumpAllInfo(const char* filename) const {
   std::ofstream file;
   try {
@@ -117,7 +126,7 @@ bool NNModel::load(const char* path) {
 
   // cache methods
   if (m_methods.size() > 0) m_methods.clear();
-  for (std::string name: m_backend.get_available_methods()) {
+  for (std::string name: m_backend.m_available_methods) {
     auto params = m_backend.get_method_params(name);
     // skip methods with no params
     if (params.size() == 0) continue;

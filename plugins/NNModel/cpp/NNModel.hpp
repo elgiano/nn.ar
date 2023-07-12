@@ -18,7 +18,6 @@ class NNModel {
 public:
 
   NNModel();
-  ~NNModel();
 
   NNModelMethod* getMethod(unsigned short idx, bool warn=true);
   std::string getAttribute(unsigned short idx, bool warn=true) const;
@@ -52,6 +51,7 @@ public:
   std::vector<std::string> m_attributes;
   int m_higherRatio;
 
+
 private:
 
   Backend m_backend;
@@ -63,6 +63,7 @@ public:
   // load model from .ts file
   NNModel* load(const char* path);
   NNModel* load(unsigned short id, const char* path);
+  void unload(unsigned short id);
   // get stored model
   NNModel* get(unsigned short id, bool warn=true) const;
   // all loaded models info
