@@ -2,6 +2,7 @@
 #include "NNModel.hpp"
 #include "NNUGens.hpp"
 #include "NNModelCmd.hpp"
+#include "SC_Unit.h"
 #include "rt_circular_buffer.h"
 #include "SC_InterfaceTable.h"
 #include "SC_PlugIn.hpp"
@@ -10,6 +11,11 @@ InterfaceTable* ft;
 
 // global model store, by numeric id
 NN::NNModelRegistry gModels;
+
+template<class T>
+T* rtAlloc(World* world, size_t size=1) {
+  return (T*) RTAlloc(world, sizeof(T) * size);
+}
 
 namespace NN {
 
@@ -67,6 +73,7 @@ void model_perform(NN* nn_instance) {
 }
 void model_perform_loop(NN *nn_instance) {
   std::vector<float *> in_model, out_model;
+  NNModel model(*nn_instance->m_model);
   for (int c(0); c < nn_instance->m_inDim; ++c)
     in_model.push_back(&nn_instance->m_inModel[nn_instance->m_bufferSize * c]);
   for (int c(0); c < nn_instance->m_outDim; ++c)
@@ -74,13 +81,15 @@ void model_perform_loop(NN *nn_instance) {
   while (!nn_instance->m_should_stop_perform_thread) {
     if (nn_instance->m_data_available_lock.try_acquire_for(
             std::chrono::milliseconds(200))) {
-      nn_instance->m_model->perform(in_model, out_model,
+      if(!nn_instance->m_should_stop_perform_thread)
+        model.perform(in_model, out_model,
                                     nn_instance->m_bufferSize,
                                     nn_instance->m_method->name, 1);
+
       nn_instance->m_result_available_lock.release();
     }
   }
-  nn_instance->freeBuffers();
+  /* Print("thread exit\n"); */
 }
 
 #endif // def MODEL_PERFORM_CUSTOM
@@ -134,6 +143,13 @@ NN::NN():
   m_inModel(nullptr), m_outModel(nullptr)
 {
   /* Print("NN: Ctor\n"); */
+  /* m_model = rtAlloc<NNModel>(mWorld); */
+  /* if(!m_model) { */
+  /*   auto unit = (Unit*) this; */
+  /*   ClearUnitIfMemFailed(m_model); */
+  /* } */
+  /* new(m_model) NNModel(*getModel(in0(UGenInputs::modelIdx))); */
+  /* m_model = new NNModel(*getModel(in0(UGenInputs::modelIdx))); */
   m_model = getModel(in0(UGenInputs::modelIdx));
   if (m_model)
     m_method = getModelMethod(m_model, in0(UGenInputs::methodIdx));
@@ -173,17 +189,13 @@ NN::~NN() {
     // don't wait for join, it would stall the dsp chain
     // thread calls freeBuffers() when stopped
     m_should_stop_perform_thread = true;
-  } else {
-    freeBuffers();
+    m_compute_thread->join();
   }
+  freeBuffers();
 }
 
 // BUFFERS
 
-template<class T>
-T* rtAlloc(World* world, size_t size) {
-  return (T*) RTAlloc(world, sizeof(T) * size);
-}
 
 RingBuf* allocRingBuffer(World* world, size_t bufSize, size_t numChannels) {
   RingBuf* ctrs = rtAlloc<RingBuf>(world, numChannels);
@@ -246,6 +258,8 @@ void NN::freeBuffers() {
   freeRingBuffer(mWorld, m_outBuffer);
   RTFree(mWorld, m_inModel);
   RTFree(mWorld, m_outModel);
+  /* delete m_model; */
+  /* RTFree(mWorld, m_model); */
 }
 
 
@@ -253,6 +267,7 @@ void NN::freeBuffers() {
 
 NNAttrUGen::NNAttrUGen(): m_model(nullptr) {
   m_model = getModel(in0(NNAttrInputs::modelIdx));
+  m_model = new NNModel(*m_model);
   /* Print("NNAttrUGen: Ctor\nmodel: %p\n", m_model); */
   m_attrIdx = static_cast<unsigned short>(in0(NNAttrInputs::attrIdx));
   /* Print("attr: #%d\n", m_attrName); */

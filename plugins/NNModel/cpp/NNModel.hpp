@@ -51,6 +51,21 @@ public:
   std::vector<std::string> m_attributes;
   int m_higherRatio;
 
+  // clone
+  NNModel(const NNModel& orig):
+    m_path(orig.m_path),
+    m_idx(orig.m_idx),
+    m_methods(orig.m_methods),
+    m_attributes(orig.m_attributes),
+    m_higherRatio(orig.m_higherRatio)
+  {
+    m_backend.m_path = orig.m_backend.m_path;
+    m_backend.m_loaded = orig.m_backend.m_loaded;
+    m_backend.m_available_methods = orig.m_backend.m_available_methods;
+    m_backend.m_device = orig.m_backend.m_device;
+    m_backend.m_use_gpu = orig.m_backend.m_use_gpu;
+    m_backend.m_model = orig.m_backend.m_model.clone();
+  }
 
 private:
 
