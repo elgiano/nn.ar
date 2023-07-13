@@ -4,7 +4,7 @@
 #include "SC_PlugIn.hpp"
 
 extern InterfaceTable* ft;
-extern NN::NNModelRegistry gModels;
+extern NN::NNModelDescLib gModels;
 
 inline char* copyStrToBuf(char** buf, const char* str) {
   char* res = strcpy(*buf, str); *buf += strlen(str) + 1;
@@ -66,52 +66,6 @@ bool nn_load(World* world, void* inData) {
   return true;
 }
 
-// /cmd /nn_set int int str
-struct SetCmdData {
-public:
-  int modelIdx;
-  int attrIdx;
-  const char* valueString;
-
-  static SetCmdData* alloc(sc_msg_iter* args, World* world=nullptr) {
-
-    int modelIdx = args->geti(-1);
-    int attrIdx = args->geti(-1);
-    const char* valueString = args->gets();
-    if (modelIdx < 0 || attrIdx < 0) {
-      Print("Error: nn_set needs a model and attribute indices\n");
-      return nullptr;
-    }
-
-    size_t dataSize = sizeof(SetCmdData)
-      + strlen(valueString) + 1;
-
-    SetCmdData* cmdData = (SetCmdData*) (world ? RTAlloc(world, dataSize) : NRTAlloc(dataSize));
-    if (cmdData == nullptr) {
-      Print("nn_set: alloc failed.\n");
-      return nullptr;
-    }
-    char* data = (char*) (cmdData + 1);
-    cmdData->modelIdx = modelIdx;
-    cmdData->attrIdx = attrIdx;
-    cmdData->valueString = copyStrToBuf(&data, valueString);
-    return cmdData;
-  }
-
-  SetCmdData() = delete;
-};
-
-bool nn_set(World* world, void* inData) {
-  SetCmdData* data = (SetCmdData*)inData;
-  int modelIdx = data->modelIdx;
-  int attrIdx = data->attrIdx;
-  std::string valueString = data->valueString;
-
-  auto model = gModels.get(modelIdx);
-  if (!model) return true;
-  model->set(attrIdx, valueString);
-  return true;
-}
 
 // /cmd /nn_query str
 struct QueryCmdData {
@@ -152,48 +106,6 @@ bool nn_query(World* world, void* inData) {
   return true;
 }
 
-// /cmd /nn_warmup int int
-struct WarmupCmdData {
-public:
-  int modelIdx;
-  int methodIdx;
-
-  static WarmupCmdData* alloc(sc_msg_iter* args, World* world=nullptr) {
-    int modelIdx = args->geti(-1);
-    int methodIdx = args->geti(-1);
-
-    auto dataSize = sizeof(WarmupCmdData);
-    WarmupCmdData* cmdData = (WarmupCmdData*) (world ? RTAlloc(world, dataSize) : NRTAlloc(dataSize));
-    if (cmdData == nullptr) { Print("nn_warmup: alloc failed.\n"); return nullptr; }
-    cmdData->modelIdx = modelIdx;
-    cmdData->methodIdx = methodIdx;
-    
-    return cmdData;
-  }
-
-  WarmupCmdData() = delete;
-};
-
-bool nn_warmup(World* world, void* inData) {
-  WarmupCmdData* data = (WarmupCmdData*)inData;
-  int modelIdx = data->modelIdx;
-  int methodIdx = data->methodIdx;
-  if (modelIdx < 0) {
-    Print("nn_warmup: invalid model index %d\n", modelIdx);
-    return true;
-  }
-  const auto model = gModels.get(static_cast<unsigned short>(modelIdx), true);
-  if (model) {
-    if (methodIdx < 0) {
-      // warmup all methods
-      for(auto method: model->m_methods) model->warmup_method(&method);
-    } else {
-      auto method = model->getMethod(methodIdx, true);
-      if (method) model->warmup_method(method);
-    }
-  }
-  return true;
-}
 
 // /nn_unload i
 struct UnloadCmdData {
@@ -226,6 +138,94 @@ bool nn_unload(World* world, void* inData) {
   return true;
 }
 
+// /cmd /nn_set int int str
+/* struct SetCmdData { */
+/* public: */
+/*   int modelIdx; */
+/*   int attrIdx; */
+/*   const char* valueString; */
+
+/*   static SetCmdData* alloc(sc_msg_iter* args, World* world=nullptr) { */
+
+/*     int modelIdx = args->geti(-1); */
+/*     int attrIdx = args->geti(-1); */
+/*     const char* valueString = args->gets(); */
+/*     if (modelIdx < 0 || attrIdx < 0) { */
+/*       Print("Error: nn_set needs a model and attribute indices\n"); */
+/*       return nullptr; */
+/*     } */
+
+/*     size_t dataSize = sizeof(SetCmdData) */
+/*       + strlen(valueString) + 1; */
+
+/*     SetCmdData* cmdData = (SetCmdData*) (world ? RTAlloc(world, dataSize) : NRTAlloc(dataSize)); */
+/*     if (cmdData == nullptr) { */
+/*       Print("nn_set: alloc failed.\n"); */
+/*       return nullptr; */
+/*     } */
+/*     char* data = (char*) (cmdData + 1); */
+/*     cmdData->modelIdx = modelIdx; */
+/*     cmdData->attrIdx = attrIdx; */
+/*     cmdData->valueString = copyStrToBuf(&data, valueString); */
+/*     return cmdData; */
+/*   } */
+
+/*   SetCmdData() = delete; */
+/* }; */
+
+/* bool nn_set(World* world, void* inData) { */
+/*   SetCmdData* data = (SetCmdData*)inData; */
+/*   int modelIdx = data->modelIdx; */
+/*   int attrIdx = data->attrIdx; */
+/*   std::string valueString = data->valueString; */
+
+/*   auto model = gModels.get(modelIdx); */
+/*   if (!model) return true; */
+/*   model->set(attrIdx, valueString); */
+/*   return true; */
+/* } */
+// /cmd /nn_warmup int int
+/* struct WarmupCmdData { */
+/* public: */
+/*   int modelIdx; */
+/*   int methodIdx; */
+
+/*   static WarmupCmdData* alloc(sc_msg_iter* args, World* world=nullptr) { */
+/*     int modelIdx = args->geti(-1); */
+/*     int methodIdx = args->geti(-1); */
+
+/*     auto dataSize = sizeof(WarmupCmdData); */
+/*     WarmupCmdData* cmdData = (WarmupCmdData*) (world ? RTAlloc(world, dataSize) : NRTAlloc(dataSize)); */
+/*     if (cmdData == nullptr) { Print("nn_warmup: alloc failed.\n"); return nullptr; } */
+/*     cmdData->modelIdx = modelIdx; */
+/*     cmdData->methodIdx = methodIdx; */
+    
+/*     return cmdData; */
+/*   } */
+
+/*   WarmupCmdData() = delete; */
+/* }; */
+
+/* bool nn_warmup(World* world, void* inData) { */
+/*   WarmupCmdData* data = (WarmupCmdData*)inData; */
+/*   int modelIdx = data->modelIdx; */
+/*   int methodIdx = data->methodIdx; */
+/*   if (modelIdx < 0) { */
+/*     Print("nn_warmup: invalid model index %d\n", modelIdx); */
+/*     return true; */
+/*   } */
+/*   const auto model = gModels.get(static_cast<unsigned short>(modelIdx), true); */
+/*   if (model) { */
+/*     if (methodIdx < 0) { */
+/*       // warmup all methods */
+/*       for(auto method: model->m_methods) model->warmup_method(&method); */
+/*     } else { */
+/*       auto method = model->getMethod(methodIdx, true); */
+/*       if (method) model->warmup_method(method); */
+/*     } */
+/*   } */
+/*   return true; */
+/* } */
 void nrtFree(World*, void* data) { NRTFree(data); }
 
 template<class CmdData, auto cmdFn>
@@ -243,10 +243,10 @@ void asyncCmd(World* world, void* inUserData, sc_msg_iter* args, void* replyAddr
 
 void definePlugInCmds() {
   DefinePlugInCmd("/nn_load", asyncCmd<LoadCmdData, nn_load>, nullptr);
-  DefinePlugInCmd("/nn_set", asyncCmd<SetCmdData, nn_set>, nullptr);
   DefinePlugInCmd("/nn_query", asyncCmd<QueryCmdData, nn_query>, nullptr);
-  DefinePlugInCmd("/nn_warmup", asyncCmd<WarmupCmdData, nn_warmup>, nullptr);
   DefinePlugInCmd("/nn_unload", asyncCmd<UnloadCmdData, nn_unload>, nullptr);
+  /* DefinePlugInCmd("/nn_set", asyncCmd<SetCmdData, nn_set>, nullptr); */
+  /* DefinePlugInCmd("/nn_warmup", asyncCmd<WarmupCmdData, nn_warmup>, nullptr); */
 }
 
 } // namespace NN::Cmd

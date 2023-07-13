@@ -33,15 +33,17 @@ NN {
 	}
 
 	// NN(\model) -> NNModel
-	// NN(\model, \method) -> NNModelMethod
+	// NN(\model, \method) -> NNUGenFactory
 	*new { |key, methodName|
 		var model = this.model(key) ?? { 
 			Error("NNModel: model '%' not found".format(key)).throw;
 		};
+		var method;
 		if (methodName.isNil) { ^model };
-		^model.method(methodName) ?? {
+		method = model.method(methodName) ?? {
 			Error("NNModel(%): method '%' not found".format(key, methodName)).throw
 		};
+		^NNUGenFactory(model, method);
 	}
 
   *load { |key, path, id(-1), server(Server.default), action|
@@ -81,14 +83,14 @@ NN {
 	*loadMsg { |id, path, infoFile|
 		^["/cmd", "/nn_load", id, path.standardizePath, infoFile.standardizePath]
 	}
-	*setMsg { |modelIdx, attrIdx, value|
-		^["/cmd", "/nn_set", modelIdx, attrIdx, value.asString]
-	}
 	*dumpInfoMsg { |modelIdx, outFile|
 		^["/cmd", "/nn_query", modelIdx ? -1, outFile ? ""]
 	}
-	*warmupMsg { |modelId, methodId(-1)|
-		^["/cmd", "/nn_warmup", modelId, methodId]
-	}
+	// *setMsg { |modelIdx, attrIdx, value|
+	// 	^["/cmd", "/nn_set", modelIdx, attrIdx, value.asString]
+	// }
+	// *warmupMsg { |modelId, methodId(-1)|
+	// 	^["/cmd", "/nn_warmup", modelId, methodId]
+	// }
 
 }

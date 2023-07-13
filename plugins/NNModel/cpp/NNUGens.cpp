@@ -10,7 +10,8 @@
 InterfaceTable* ft;
 
 // global model store, by numeric id
-NN::NNModelRegistry gModels;
+NN::NNModelDescLib gModels;
+
 
 template<class T>
 T* rtAlloc(World* world, size_t size=1) {
@@ -19,11 +20,42 @@ T* rtAlloc(World* world, size_t size=1) {
 
 namespace NN {
 
-static NNModel* getModel(float modelIdx) {
-  return gModels.get(static_cast<unsigned short>(modelIdx), true);
+struct NNID { int32 parentID; int32 nodeID; };
+inline bool operator<(const NNID& p1, const NNID& p2) {
+  return (p1.parentID != p2.parentID) ? 
+        p1.parentID < p2.parentID :
+        p1.nodeID < p2.nodeID;
 }
 
-static NNModelMethod* getModelMethod(NNModel* model, float methodIdx) {
+class NNUGenRegister {
+public:
+  void add(int32 id, NN* ugen) {
+    Print("registering ugen: #(%d, %d) %p\n", ugen->mParent->mNode.mHash, id, ugen);
+    m_ugens[NNID{ugen->mParent->mNode.mHash, id}] = ugen;
+  }
+  void remove(int32 id, const NN* ugen) {
+    try {
+      m_ugens.erase(NNID{ugen->mParent->mNode.mHash, id});
+    } catch (const std::out_of_range&) { }
+  }
+  NN* get(int32 id, const Unit* unit) {
+    Print("getting ugen: #(%d, %d)\n", unit->mParent->mNode.mHash, id);
+    try {
+      return m_ugens.at(NNID{unit->mParent->mNode.mHash, id});
+    } catch (const std::out_of_range&) {
+      Print("NNUGen #(%d, %d) not found\n", unit->mParent->mNode.mHash, id);
+      return nullptr;
+    }
+  }
+private:
+  std::map<NNID, NN*> m_ugens;
+};
+
+// global UGen reference store, for setting and getting attributes
+static NNUGenRegister nnUGenRegister;
+
+
+static NNModelMethod* getModelMethod(NNModelDesc* model, float methodIdx) {
   if (model == nullptr) return nullptr;
 
   auto method = model->getMethod(static_cast<unsigned short>(methodIdx));
@@ -39,25 +71,32 @@ void NN::clearOutputs(int nSamples) {
 
 // PERFORM
 
+void model_perform_load(NN* nn) {
+  Print("loading\n");
+  nn->m_model.load(nn->m_modelDesc->m_path);
+  Print("loaded\n");
+}
+
 #define MODEL_PERFORM_CUSTOM 0
 
 #if MODEL_PERFORM_CUSTOM
 
-void model_perform(NN* nn_instance) {
-  nn_instance->m_model->perform(
-        nn_instance->m_inModel, nn_instance->m_outModel, nn_instance->m_bufferSize,
-        nn_instance->m_method, 1);
-}
-void model_perform_loop(NN* nn_instance) {
-  while (!nn_instance->m_should_stop_perform_thread) {
-    if (nn_instance->m_data_available_lock.try_acquire_for(
-            std::chrono::milliseconds(200))) {
-      model_perform(nn_instance);
-      nn_instance->m_result_available_lock.release();
-    }
-  }
-  nn_instance->freeBuffers();
-}
+/* void model_perform(NN* nn_instance) { */
+/*   nn_instance->m_model->perform( */
+/*         nn_instance->m_inModel, nn_instance->m_outModel, nn_instance->m_bufferSize, */
+/*         nn_instance->m_method, 1); */
+/* } */
+/* void model_perform_loop(NN* nn_instance) { */
+/*   model_perform_load(nn_instance); */
+/*   while (!nn_instance->m_should_stop_perform_thread) { */
+/*     if (nn_instance->m_data_available_lock.try_acquire_for( */
+/*             std::chrono::milliseconds(200))) { */
+/*       model_perform(nn_instance); */
+/*       nn_instance->m_result_available_lock.release(); */
+/*     } */
+/*   } */
+/*   nn_instance->freeBuffers(); */
+/* } */
 
 #else
 
@@ -67,13 +106,13 @@ void model_perform(NN* nn_instance) {
     in_model.push_back(&nn_instance->m_inModel[nn_instance->m_bufferSize * c]);
   for (int c(0); c < nn_instance->m_outDim; ++c)
     out_model.push_back(&nn_instance->m_outModel[nn_instance->m_bufferSize * c]);
-      nn_instance->m_model->perform(in_model, out_model,
+      nn_instance->m_model.perform(in_model, out_model,
                                     nn_instance->m_bufferSize,
                                     nn_instance->m_method->name, 1);
 }
 void model_perform_loop(NN *nn_instance) {
+  model_perform_load(nn_instance);
   std::vector<float *> in_model, out_model;
-  NNModel model(*nn_instance->m_model);
   for (int c(0); c < nn_instance->m_inDim; ++c)
     in_model.push_back(&nn_instance->m_inModel[nn_instance->m_bufferSize * c]);
   for (int c(0); c < nn_instance->m_outDim; ++c)
@@ -82,7 +121,7 @@ void model_perform_loop(NN *nn_instance) {
     if (nn_instance->m_data_available_lock.try_acquire_for(
             std::chrono::milliseconds(200))) {
       if(!nn_instance->m_should_stop_perform_thread)
-        model.perform(in_model, out_model,
+        nn_instance->m_model.perform(in_model, out_model,
                                     nn_instance->m_bufferSize,
                                     nn_instance->m_method->name, 1);
 
@@ -94,8 +133,10 @@ void model_perform_loop(NN *nn_instance) {
 
 #endif // def MODEL_PERFORM_CUSTOM
 
+
 void NN::next(int nSamples) {
-  if (!m_model->is_loaded() || mDone || !m_enabled) {
+
+  if (!m_modelDesc->is_loaded() || mDone || !m_enabled) {
     ClearUnitOutputs(this, nSamples);
     return;
   };
@@ -134,7 +175,7 @@ void NN::next(int nSamples) {
 }
 
 NN::NN(): 
-  m_model(nullptr), m_method(nullptr), 
+  m_method(nullptr), 
   m_compute_thread(nullptr), m_useThread(true),
   m_data_available_lock(0), m_result_available_lock(1),
   m_should_stop_perform_thread(false),
@@ -142,17 +183,12 @@ NN::NN():
   m_inBuffer(nullptr), m_outBuffer(nullptr),
   m_inModel(nullptr), m_outModel(nullptr)
 {
-  /* Print("NN: Ctor\n"); */
-  /* m_model = rtAlloc<NNModel>(mWorld); */
-  /* if(!m_model) { */
-  /*   auto unit = (Unit*) this; */
-  /*   ClearUnitIfMemFailed(m_model); */
-  /* } */
-  /* new(m_model) NNModel(*getModel(in0(UGenInputs::modelIdx))); */
-  /* m_model = new NNModel(*getModel(in0(UGenInputs::modelIdx))); */
-  m_model = getModel(in0(UGenInputs::modelIdx));
-  if (m_model)
-    m_method = getModelMethod(m_model, in0(UGenInputs::methodIdx));
+  int32 m_ugenID = static_cast<int32>(in0(UGenInputs::ugenIdx));
+  nnUGenRegister.add(m_ugenID, this);
+  auto modelIdx = static_cast<unsigned short>(in0(UGenInputs::modelIdx));
+  m_modelDesc = gModels.get(modelIdx);
+  if (m_modelDesc)
+    m_method = getModelMethod(m_modelDesc, in0(UGenInputs::methodIdx));
   if (m_method == nullptr) {
     mDone = true;
     set_calc_function<NN, &NN::clearOutputs>();
@@ -160,6 +196,24 @@ NN::NN():
   }
   m_inDim = m_method->inDim;
   m_outDim = m_method->outDim;
+
+  m_bufferSize = in0(UGenInputs::bufSize);
+  if (m_bufferSize < 0) {
+    // NO THREAD MODE
+    m_useThread = false;
+    m_bufferSize = m_modelDesc->m_higherRatio;
+  } else if (m_bufferSize == 0) {
+    m_bufferSize = m_modelDesc->m_higherRatio;
+  } else if (m_bufferSize < m_modelDesc->m_higherRatio) {
+    m_bufferSize = m_modelDesc->m_higherRatio;
+    Print("NNUGen: buffer size to small, switching to %d.\n", m_bufferSize);
+  } else {
+    int pow2 = NEXTPOWEROFTWO(m_bufferSize);
+    if (m_bufferSize != pow2) {
+      m_bufferSize = pow2;
+      Print("NNUGen: rounding buffer size %d.\n", m_bufferSize);
+    }
+  }
 
   if (!allocBuffers()) {
     freeBuffers();
@@ -178,6 +232,9 @@ NN::NN():
   if (!mWorld->mRealTime) m_useThread = false;
   if (m_useThread)
     m_compute_thread = new std::thread(model_perform_loop, this);
+  else
+    model_perform_load(this);
+
   mCalcFunc = make_calc_function<NN, &NN::next>();
   m_enabled = true;
   /* Print("NN: Ctor done\n"); */
@@ -185,6 +242,7 @@ NN::NN():
 
 NN::~NN() {
   /* Print("NN: Dtor\n"); */
+  nnUGenRegister.remove(m_ugenId, this);
   if (m_compute_thread) {
     // don't wait for join, it would stall the dsp chain
     // thread calls freeBuffers() when stopped
@@ -195,7 +253,6 @@ NN::~NN() {
 }
 
 // BUFFERS
-
 
 RingBuf* allocRingBuffer(World* world, size_t bufSize, size_t numChannels) {
   RingBuf* ctrs = rtAlloc<RingBuf>(world, numChannels);
@@ -219,25 +276,6 @@ void freeRingBuffer(World* world, RingBuf* buf) {
 }
 
 bool NN::allocBuffers() {
-
-  m_bufferSize = in0(UGenInputs::bufSize);
-  if (m_bufferSize < 0) {
-    // NO THREAD MODE
-    m_useThread = false;
-    m_bufferSize = m_model->m_higherRatio;
-  } else if (m_bufferSize == 0) {
-    m_bufferSize = m_model->m_higherRatio;
-  } else if (m_bufferSize < m_model->m_higherRatio) {
-    m_bufferSize = m_model->m_higherRatio;
-    Print("NNUGen: buffer size to small, switching to %d.\n", m_bufferSize);
-  } else {
-    int pow2 = NEXTPOWEROFTWO(m_bufferSize);
-    if (m_bufferSize != pow2) {
-      m_bufferSize = pow2;
-      Print("NNUGen: rounding buffer size %d.\n", m_bufferSize);
-    }
-  }
-
   m_inBuffer = allocRingBuffer(mWorld, m_bufferSize, m_inDim);
   if (m_inBuffer == nullptr) return false;
   m_outBuffer = allocRingBuffer(mWorld, m_bufferSize, m_outDim);
@@ -265,26 +303,43 @@ void NN::freeBuffers() {
 
 // PARAMS
 
-NNAttrUGen::NNAttrUGen(): m_model(nullptr) {
-  m_model = getModel(in0(NNAttrInputs::modelIdx));
-  m_model = new NNModel(*m_model);
-  /* Print("NNAttrUGen: Ctor\nmodel: %p\n", m_model); */
-  m_attrIdx = static_cast<unsigned short>(in0(NNAttrInputs::attrIdx));
-  /* Print("attr: #%d\n", m_attrName); */
-  std::string attrName;
-  if (m_model != nullptr)
-    attrName = m_model->getAttribute(m_attrIdx);
-  if (attrName.empty()) {
+
+
+
+
+NNAttrUGen::NNAttrUGen():m_attrName() {
+
+  /* Print("NNATTR::CTor\n"); */
+  int32 ugenIdx = static_cast<int32>(in0(NNAttrInputs::modelIdx));
+  m_ugen = nnUGenRegister.get(ugenIdx, this);
+  /* Print("> ugen: #%d %p\n", ugenIdx, m_ugen); */
+  auto attrIdx = static_cast<unsigned short>(in0(NNAttrInputs::attrIdx));
+  if (m_ugen != nullptr)
+    m_attrName = m_ugen->m_modelDesc->getAttributeName(attrIdx);
+  /* Print("> attr #%d: %s\n", attrIdx, m_attrName.c_str()); */
+  if (m_attrName.empty()) {
     mDone = true;
     Unit* unit = this;
     SETCALC(ClearUnitOutputs);
     return;
   }
-  /* Print("attrName: %s\n", attrName.c_str()); */
 }
+
+
 
 NNSet::NNSet() {
   set_calc_function<NNSet, &NNSet::next>();
+}
+static bool setAttribute(Backend& backend, const std::string& attrName, float value, bool warn=false) {
+/*   /1* Print("setting attr %s to %f\n", name.c_str(), value); *1/ */
+  std::vector<std::string> args = {std::to_string(value)};
+  try {
+    backend.set_attribute(attrName, args);
+  } catch (...) {
+    if (warn) Print("NNBackend: can't set attribute %s\n", attrName.c_str());
+    return false;
+  }
+  return true;
 }
 void NNSet::next(int nSamples) {
   Unit* unit = this;
@@ -292,7 +347,7 @@ void NNSet::next(int nSamples) {
   if (mDone) { return; };
   float val = in0(UGenInputs::value);
   if (!m_init || val != m_lastVal) {
-    m_model->set(m_attrIdx, val);
+    setAttribute(m_ugen->m_model, m_attrName, val);
     m_lastVal = val;
     m_init = true;
   }
@@ -301,13 +356,38 @@ void NNSet::next(int nSamples) {
 NNGet::NNGet() {
   set_calc_function<NNGet, &NNGet::next>();
 }
+static float getAttribute(Backend& backend, const std::string& name, bool warn) {
+  try {
+    auto value = backend.get_attribute(name)[0];
+    /* auto str = m_backend.get_attribute_as_string(name); */
+    /* Print("STR %s\n", str.c_str()); */
+    if (value.isInt()) {
+      return static_cast<float>(value.toInt());
+    }
+    else if (value.isBool()) {
+      return value.toBool() ? 1.0 : 0.0;
+    }
+    else if (value.isDouble()) {
+      Print("%s: %d\n", name.c_str(), value.toDouble());
+      return static_cast<float>(value.toDouble());
+    }
+    else {
+      if (warn) Print("NNGet: attribute '%s' has unsupported type.\n", name.c_str());
+      return 0;
+    }
+  } catch (...) {
+    if (warn) Print("NNGet: can't get attribute %s\n", name.c_str());
+    return 0;
+  }
+}
+
 void NNGet::next(int nSamples) {
   Unit* unit = this;
   ClearUnitOutputs;
   if (mDone) {
     return;
   };
-  out0(0) = m_model->get(m_attrIdx, true);
+  out0(0) = getAttribute(m_ugen->m_model, m_attrName, true);
 }
 
 } // namespace NN

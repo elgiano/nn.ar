@@ -78,34 +78,6 @@ NNModel {
 		^NN.loadMsg(idx, newPath ? path, infoFile)
 	}
 
-	get { |attributeName, action|
-		{
-			NNGet.kr(this.idx, attributeName)
-		}.loadToFloatArray(server.options.blockSize / server.sampleRate, server) { |v|
-			action.(v.last)
-		}
-	}
-
-	setMsg { |attributeName, value|
-		var attrIdx = this.attrIdx(attributeName.asSymbol) ?? {
-			Error("NNModel(%): attribute % not found. Attributes: %"
-				.format(this.key, attributeName, this.attributes)).throw;
-		};
-		^NN.setMsg(this.idx, attrIdx, value)
-	}
-	set { |attributeName, value|
-		var msg = this.setMsg(attributeName, value);
-		this.prErrIfNoServer("dumpInfo");
-		if (server.serverRunning.not) { Error("server not running").throw };
-		forkIfNeeded { server.sync(bundles: [msg]) };
-	}
-
-	warmup {
-		forkIfNeeded {
-			server.sync(bundles: [NN.warmupMsg(this.idx, -1)]);
-		}
-	}
-
 	dumpInfoMsg { |outFile| ^NN.dumpInfoMsg(this.idx, outFile) }
 	dumpInfo { |outFile|
 		var msg = this.dumpInfoMsg(outFile);
@@ -143,6 +115,33 @@ NNModel {
 
 	key { ^NN.keyForModel(this) }
 
+	// get { |attributeName, action|
+	// 	{
+	// 		NNGet.kr(this.idx, attributeName)
+	// 	}.loadToFloatArray(server.options.blockSize / server.sampleRate, server) { |v|
+	// 		action.(v.last)
+	// 	}
+	// }
+
+	// setMsg { |attributeName, value|
+	// 	var attrIdx = this.attrIdx(attributeName.asSymbol) ?? {
+	// 		Error("NNModel(%): attribute % not found. Attributes: %"
+	// 			.format(this.key, attributeName, this.attributes)).throw;
+	// 	};
+	// 	^NN.setMsg(this.idx, attrIdx, value)
+	// }
+	// set { |attributeName, value|
+	// 	var msg = this.setMsg(attributeName, value);
+	// 	this.prErrIfNoServer("dumpInfo");
+	// 	if (server.serverRunning.not) { Error("server not running").throw };
+	// 	forkIfNeeded { server.sync(bundles: [msg]) };
+	// }
+
+	// warmup {
+	// 	forkIfNeeded {
+	// 		server.sync(bundles: [NN.warmupMsg(this.idx, -1)]);
+	// 	}
+	// }
 }
 
 NNModelInfo {
@@ -174,6 +173,7 @@ NNModelInfo {
   }
 }
 
+
 NNModelMethod {
 	var <model, <name, <idx, <numInputs, <numOutputs;
 
@@ -183,20 +183,12 @@ NNModelMethod {
     ^this.class.newCopyArgs(model, name, idx, numInputs, numOutputs)
   }
 
-	ar { |bufferSize=0, inputs|
-		inputs = inputs.asArray;
-		if (inputs.size != this.numInputs) {
-			Error("NNModel: method % has % inputs, but was given %."
-				.format(this.name, this.numInputs, inputs.size)).throw
-		};
-		^NNUGen.ar(model.idx, idx, bufferSize, this.numOutputs, inputs)
-	}
 
-	warmup {
-		forkIfNeeded {
-			model.server.sync(bundles: [NN.warmupMsg(model.idx, this.idx)]);
-		}
-	}
+	// warmup {
+	// 	forkIfNeeded {
+	// 		model.server.sync(bundles: [NN.warmupMsg(model.idx, this.idx)]);
+	// 	}
+	// }
 
 	printOn { |stream|
 		stream << "%(%: % in, % out)".format(this.class.name, name, numInputs, numOutputs);
