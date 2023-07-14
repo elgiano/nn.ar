@@ -38,12 +38,10 @@ NN {
 		var model = this.model(key) ?? { 
 			Error("NNModel: model '%' not found".format(key)).throw;
 		};
-		var method;
 		if (methodName.isNil) { ^model };
-		method = model.method(methodName) ?? {
+		^model.method(methodName) ?? {
 			Error("NNModel(%): method '%' not found".format(key, methodName)).throw
 		};
-		^NNUGenFactory(model, method);
 	}
 
   *load { |key, path, id(-1), server(Server.default), action|

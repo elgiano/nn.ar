@@ -138,52 +138,6 @@ bool nn_unload(World* world, void* inData) {
   return true;
 }
 
-// /cmd /nn_set int int str
-/* struct SetCmdData { */
-/* public: */
-/*   int modelIdx; */
-/*   int attrIdx; */
-/*   const char* valueString; */
-
-/*   static SetCmdData* alloc(sc_msg_iter* args, World* world=nullptr) { */
-
-/*     int modelIdx = args->geti(-1); */
-/*     int attrIdx = args->geti(-1); */
-/*     const char* valueString = args->gets(); */
-/*     if (modelIdx < 0 || attrIdx < 0) { */
-/*       Print("Error: nn_set needs a model and attribute indices\n"); */
-/*       return nullptr; */
-/*     } */
-
-/*     size_t dataSize = sizeof(SetCmdData) */
-/*       + strlen(valueString) + 1; */
-
-/*     SetCmdData* cmdData = (SetCmdData*) (world ? RTAlloc(world, dataSize) : NRTAlloc(dataSize)); */
-/*     if (cmdData == nullptr) { */
-/*       Print("nn_set: alloc failed.\n"); */
-/*       return nullptr; */
-/*     } */
-/*     char* data = (char*) (cmdData + 1); */
-/*     cmdData->modelIdx = modelIdx; */
-/*     cmdData->attrIdx = attrIdx; */
-/*     cmdData->valueString = copyStrToBuf(&data, valueString); */
-/*     return cmdData; */
-/*   } */
-
-/*   SetCmdData() = delete; */
-/* }; */
-
-/* bool nn_set(World* world, void* inData) { */
-/*   SetCmdData* data = (SetCmdData*)inData; */
-/*   int modelIdx = data->modelIdx; */
-/*   int attrIdx = data->attrIdx; */
-/*   std::string valueString = data->valueString; */
-
-/*   auto model = gModels.get(modelIdx); */
-/*   if (!model) return true; */
-/*   model->set(attrIdx, valueString); */
-/*   return true; */
-/* } */
 // /cmd /nn_warmup int int
 /* struct WarmupCmdData { */
 /* public: */
@@ -245,7 +199,6 @@ void definePlugInCmds() {
   DefinePlugInCmd("/nn_load", asyncCmd<LoadCmdData, nn_load>, nullptr);
   DefinePlugInCmd("/nn_query", asyncCmd<QueryCmdData, nn_query>, nullptr);
   DefinePlugInCmd("/nn_unload", asyncCmd<UnloadCmdData, nn_unload>, nullptr);
-  /* DefinePlugInCmd("/nn_set", asyncCmd<SetCmdData, nn_set>, nullptr); */
   /* DefinePlugInCmd("/nn_warmup", asyncCmd<WarmupCmdData, nn_warmup>, nullptr); */
 }
 

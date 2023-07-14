@@ -2,6 +2,7 @@
 
 #pragma once
 #include "NNModel.hpp"
+#include "backend/backend.h"
 #include "SC_PlugIn.hpp"
 #include "rt_circular_buffer.h"
 #include <chrono>
@@ -13,6 +14,32 @@ namespace NN {
 
 using RingBuf = RingBufCtrl<float, float>;
 
+enum Debug { none=0, attributes=1, all=2 };
+
+class NNSetAttr {
+public:
+  std::string attrName;
+  // remember in0 indices
+  int inputIdx;
+
+  NNSetAttr(std::string name, int inputIdx, float initVal);
+
+  // called in audio thread: check trig, update value and flag
+  void update(Unit* unit, int nSamples);
+
+  bool changed() const { return valUpdated; }
+  // called before model_perform
+  std::string getStrValue() {
+    valUpdated = false;
+    return std::to_string(value);
+  }
+
+private:
+  float lastTrig = 0;
+  float value = 0;
+  bool valUpdated = false;
+};
+
 class NN : public SCUnit {
 public:
 
@@ -21,7 +48,8 @@ public:
 
   void next(int nSamples);
   void freeBuffers();
-
+  void setupAttributes();
+  void warmupModel();
 
   float* m_inModel;
   float* m_outModel;
@@ -29,50 +57,24 @@ public:
   NNModelMethod* m_method;
   Backend m_model;
   int m_inDim, m_outDim;
-  int m_bufferSize;
+  int m_bufferSize, m_debug;
+  std::vector<NNSetAttr> m_attributes;
   std::binary_semaphore m_data_available_lock, m_result_available_lock;
   bool m_should_stop_perform_thread;
+  bool m_warmup;
 
 private:
-  enum UGenInputs { ugenIdx=0, modelIdx, methodIdx, bufSize, inputs };
+  enum UGenInputs { modelIdx=0, methodIdx, bufSize, warmup, debug, inputs };
   void clearOutputs(int nSamples);
-  bool loadModel();
   bool allocBuffers();
+  void updateAttributes();
 
   RingBuf* m_inBuffer;
   RingBuf* m_outBuffer;
   int16 m_ugenId;
-  bool m_enabled;
   bool m_useThread;
 
-  std::thread* m_compute_thread;
-};
-
-
-class NNAttrUGen : public SCUnit {
-public:
-  NNAttrUGen();
-
-  enum NNAttrInputs { modelIdx=0, attrIdx };
-  NN* m_ugen;
-  std::string m_attrName;
-};
-
-class NNSet : public NNAttrUGen {
-public:
-  NNSet();
-  void next(int nSamples);
-
-private:
-  enum UGenInputs { value=NNAttrInputs::attrIdx+1 };
-  bool m_init;
-  float m_lastVal;
-};
-
-class NNGet : public NNAttrUGen {
-public:
-  NNGet();
-  void next(int nSamples);
+  std::unique_ptr<std::thread> m_compute_thread;
 };
 
 } // namespace NN

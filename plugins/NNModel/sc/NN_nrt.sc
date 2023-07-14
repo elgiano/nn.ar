@@ -44,7 +44,7 @@
 
 + NNModel {
 
-	nrtResynth { |bufPath, dstPath, blockSize|
+	nrtResynth { |bufPath, dstPath, blockSize=0|
 		var startTime = Date.getDate.rawSeconds;
 		var sampleRate, nch, duration;
 		SoundFile.use(bufPath) { |sf|
@@ -57,7 +57,7 @@
 			[0.0, this.loadMsg],
 			[0.0, ["/d_recv", SynthDef(\resynth) { |out=0|
 				Out.ar(out, SoundIn.ar((0..nch)).collect { |ch|
-				this.method(\forward).ar(blockSize, ch)
+				this.method(\forward).ar(ch, bufferSize: blockSize)
 				})
 			}.asBytes]],
 			[0.0, Synth.basicNew(\resynth).newMsg],

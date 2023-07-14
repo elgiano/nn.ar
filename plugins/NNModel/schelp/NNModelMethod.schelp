@@ -11,25 +11,32 @@ instancemethods::
 
 method::ar
 Returns a link::Classes/NNUGen:: for this model method.
-argument::blockSize
-The number of samples to process at the same time. Set to choose the minimum
-buffer size available and to -1 to also disable processing on separate thread.
 argument::inputs
 The array of inputs to the process. It must be the correct size
 (link::NNModelMethod#-numInputs::), otherwise an Error is thrown. If the model
 requires only one input, it can be provided outside an array.
-
+argument::blockSize
+The number of samples to process at the same time. Set to choose the minimum
+buffer size available and to -1 to also disable processing on separate thread.
 returns:: an Array of link::Classes/OutputProxy:: of size link::NNModelMethod#-numOutputs::.
 
-method::warmup
-Performs one processing pass for this method, not in real-time, because
-model optimizations
-happening in its first execution can be heavy on the audio chain (see
+argument::warmup
+Pass 1 to enable warmup: perform the first processing pass silently, right after load, because
+model optimizations happening in its first execution can cause stuttering (see
 link::Classes/NN#First-execution warmup::).
 
-note:: this method waits for the warmup to be completed using
-link::Classes/Server#-sync::. If this method is not executed in a
-link::Classes/Routine::, it forks one.::
+argument::debug
+An integer to select what level of debugging info to print:
+table::
+## 0 || nothing
+## 1 || attribute values when they are set
+## 2 || all
+::
+
+argument::attributes
+An array of pairs (attributeName, attributeValue). Attributes will be set
+everytime their attributeValue changes.
+
 
 method::name
 human-readable name
@@ -43,16 +50,16 @@ number of outputs
 examples::
 
 code::
-NN(\mymodel, \forward).ar(1024, SoundIn.ar());
+NN(\mymodel, \forward).ar(SoundIn.ar());
 // same as: 
-NN(\mymodel, \forward).ar(1024, [SoundIn.ar()]);
+NN(\mymodel, \forward).ar([SoundIn.ar()]);
 // -> an OutputProxy
 
-NN(\mymodel, \forward).ar(1024, [WhiteNoise.ar, WhiteNoise.ar]);
+NN(\mymodel, \forward).ar([WhiteNoise.ar, WhiteNoise.ar]);
 // ERROR: NNModel: method forward has 1 inputs, but was given 2
 
-NN(\mymodel, \decode).ar(1024, {LFNoise1.ar(0.1)}!8);
+NN(\mymodel, \decode).ar({LFNoise1.ar(0.1)}!8);
 // -> an OutputProxy
-NN(\mymodel, \encode).ar(1024, Silent.ar);
+NN(\mymodel, \encode).ar(Silent.ar);
 // -> [ an OutputProxy, an OutputProxy, an OutputProxy, an OutputProxy, an OutputProxy, an OutputProxy, an OutputProxy, an OutputProxy ]
 ::

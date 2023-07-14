@@ -1,5 +1,4 @@
-
-// NNModel can be constructed only:
+// NNModel can be constructed only by:
 // - *load: by loading a model on the server
 // - *read: by reading an info file (for NRT)
 
@@ -15,6 +14,18 @@ NNModel {
 	attrIdx { |attrName|
 		var attrs = this.attributes ?? { ^nil };
 		^attrs.indexOf(attrName);
+	}
+
+	key { ^NN.keyForModel(this) }
+
+	method { |name|
+    var method;
+		this.methods ?? { Error("NNModel % has no methods.".format(this.key)).throw };
+		^this.methods.detect { |m| m.name == name };
+	}
+
+	doOnServerBoot {
+		server.sendMsg(*this.loadMsg)
 	}
 
 	*load { |path, id(-1), server(Server.default), action|
@@ -51,8 +62,11 @@ NNModel {
 		^model;
 	}
 
-	doOnServerBoot {
-		server.sendMsg(*this.loadMsg)
+	*read { |infoFile, server(Server.default)|
+		^super.newCopyArgs(server).initFromFile(infoFile);
+	}
+	*fromInfo { |info, overrideId, server(Server.default)|
+		^super.newCopyArgs(server).initFromInfo(info, overrideId);
 	}
 
   initFromFile { |infoFile|
@@ -60,19 +74,13 @@ NNModel {
     this.initFromInfo(info);
     NN.prCacheInfo(info);
   }
+
   initFromInfo { |infoObj, overrideId|
     info = infoObj;
     path = info.path;
     idx = overrideId ? info.idx;
     methods = info.methods.collect { |m| m.copyForModel(this) }
   }
-	
-	*read { |infoFile, server(Server.default)|
-		^super.newCopyArgs(server).initFromFile(infoFile);
-	}
-	*fromInfo { |info, overrideId, server(Server.default)|
-		^super.newCopyArgs(server).initFromInfo(info, overrideId);
-	}
 
 	loadMsg { |newPath, infoFile|
 		^NN.loadMsg(idx, newPath ? path, infoFile)
@@ -86,20 +94,9 @@ NNModel {
 		forkIfNeeded { server.sync(bundles:[msg]) }
 	}
 
-	method { |name|
-    var method;
-		this.methods ?? { Error("NNModel % has no methods.".format(this.key)).throw };
-		^this.methods.detect { |m| m.name == name };
-	}
-
 	describe {
 		"\n*** NNModel(%)".format(this.key).postln;
-		"path: %".format(this.path).postln;
-		"minBufferSize: %".format(this.minBufferSize).postln;
-		this.methods.do { |m|
-			"- method %: % ins, % outs".format(m.name, m.numInputs, m.numOutputs).postln;
-		};
-		"".postln;
+		this.info.describe;
 	}
 
 	printOn { |stream|
@@ -112,36 +109,6 @@ NNModel {
 				.format(funcName, this.key)).throw
 		};
 	}
-
-	key { ^NN.keyForModel(this) }
-
-	// get { |attributeName, action|
-	// 	{
-	// 		NNGet.kr(this.idx, attributeName)
-	// 	}.loadToFloatArray(server.options.blockSize / server.sampleRate, server) { |v|
-	// 		action.(v.last)
-	// 	}
-	// }
-
-	// setMsg { |attributeName, value|
-	// 	var attrIdx = this.attrIdx(attributeName.asSymbol) ?? {
-	// 		Error("NNModel(%): attribute % not found. Attributes: %"
-	// 			.format(this.key, attributeName, this.attributes)).throw;
-	// 	};
-	// 	^NN.setMsg(this.idx, attrIdx, value)
-	// }
-	// set { |attributeName, value|
-	// 	var msg = this.setMsg(attributeName, value);
-	// 	this.prErrIfNoServer("dumpInfo");
-	// 	if (server.serverRunning.not) { Error("server not running").throw };
-	// 	forkIfNeeded { server.sync(bundles: [msg]) };
-	// }
-
-	// warmup {
-	// 	forkIfNeeded {
-	// 		server.sync(bundles: [NN.warmupMsg(this.idx, -1)]);
-	// 	}
-	// }
 }
 
 NNModelInfo {
@@ -171,8 +138,16 @@ NNModelInfo {
 		};
 		attributes = yaml["attributes"].collect(_.asSymbol) ?? { [] }
   }
-}
 
+	describe {
+		"path: %".format(this.path).postln;
+		"minBufferSize: %".format(this.minBufferSize).postln;
+		this.methods.do { |m|
+			"- method %: % ins, % outs".format(m.name, m.numInputs, m.numOutputs).postln;
+		};
+		"".postln;
+	}
+}
 
 NNModelMethod {
 	var <model, <name, <idx, <numInputs, <numOutputs;
@@ -183,12 +158,22 @@ NNModelMethod {
     ^this.class.newCopyArgs(model, name, idx, numInputs, numOutputs)
   }
 
+	ar { |inputs, bufferSize=0, warmup=0, debug=0, attributes(#[])|
+		var attrParams;
+		inputs = inputs.asArray;
+		if (inputs.size != this.numInputs) {
+			Error("NNModel: method % has % inputs, but was given %."
+				.format(this.name, this.numInputs, inputs.size)).throw
+		};
 
-	// warmup {
-	// 	forkIfNeeded {
-	// 		model.server.sync(bundles: [NN.warmupMsg(model.idx, this.idx)]);
-	// 	}
-	// }
+		attrParams = Array(attributes.size);
+		attributes.pairsDo { |attrName, attrValue|
+			attrParams.add(model.attrIdx(attrName));
+			attrParams.add(attrValue ?? 0);
+		};
+
+		^NNUGen.ar(model.idx, idx, bufferSize, this.numOutputs, inputs ++ attrParams, warmup, debug)
+	}
 
 	printOn { |stream|
 		stream << "%(%: % in, % out)".format(this.class.name, name, numInputs, numOutputs);

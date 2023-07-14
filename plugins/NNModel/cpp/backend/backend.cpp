@@ -1,10 +1,9 @@
-// backend.cpp from nn_tilde
-
 #include "backend.h"
 #include "parsing_utils.h"
 #include <algorithm>
 #include <iostream>
 #include <stdlib.h>
+
 #define CPU torch::kCPU
 #define CUDA torch::kCUDA
 #define MPS torch::kMPS
@@ -376,4 +375,3 @@ void Backend::use_gpu(bool value) {
   }
   m_model.to(m_device);
 }
-

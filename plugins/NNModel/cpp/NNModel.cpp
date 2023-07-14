@@ -1,4 +1,5 @@
 #include "NNModel.hpp"
+#include "backend/backend.h"
 #include <cstdio>
 #include <fstream>
 #include <ostream>
@@ -8,7 +9,7 @@ extern InterfaceTable* ft;
 
 namespace NN {
 
-NNModelMethod::NNModelMethod(std::string name, const std::vector<int>& params):
+NNModelMethod::NNModelMethod(const std::string& name, const std::vector<int>& params):
 name(name) {
   inDim = params[0];
   inRatio = params[1];
@@ -44,7 +45,7 @@ bool NNModelDesc::load(const char* path) {
 
   // cache attributes
   if (m_attributes.size() > 0) m_attributes.clear();
-  for (std::string name: backend.get_settable_attributes()) {
+  for (const std::string& name: backend.get_settable_attributes()) {
     m_attributes.push_back(name);
   }
 
@@ -71,8 +72,7 @@ std::string NNModelDesc::getAttributeName(unsigned short idx, bool warn) const {
 }
 
 
-NNModelDescLib::NNModelDescLib(): models(), modelCount(0) {
-}
+NNModelDescLib::NNModelDescLib(): models(), modelCount(0) {}
 
 unsigned short NNModelDescLib::getNextId() {
   unsigned short id = modelCount;
@@ -104,7 +104,7 @@ NNModelDesc* NNModelDescLib::get(unsigned short id, bool warn) const {
 }
 
 void NNModelDescLib::streamAllInfo(std::ostream& dest) const{
-  for (const auto kv: models) {
+  for (const auto& kv: models) {
     kv.second->streamInfo(dest);
   }
 }
@@ -144,9 +144,8 @@ NNModelDesc* NNModelDescLib::load(unsigned short id, const char* path) {
 
 void NNModelDescLib::unload(unsigned short id) {
   auto model = get(id, true);
-  /* Print("NNBackend: loading model %s at idx %d\n", path, id); */
   if (model == nullptr) return;
-
+  /* Print("NNBackend: unloading model %s at idx %d\n", model->m_path, id); */
   models.erase(id);
   delete model;
 }
@@ -272,33 +271,5 @@ bool NNModelDesc::dumpInfo(const char* filename) const {
 /*   memcpy(out_buffer, out_ptr, n_vec * sizeof(float)); */
 /* } */
 
-/* void NNModel::warmup_method(const NNModelMethod* method) const { */
-
-/*   Print("NNBackend: warming up method '%s'\n", method->name.c_str()); */
-/*   c10::InferenceMode guard; */
-/*   int in_dim = method->inDim; */
-/*   int in_size = m_higherRatio / method->inRatio; */
-/*   auto script_method = m_backend.m_model.get_method(method->name); */
-/*   auto m_device = m_backend.m_device; */
-
-/*   /1* if (!m_loaded) return; *1/ */
-
-/*   auto tensor_in = torch::zeros({1, in_dim, in_size}); */
-/*     /1* std::cout << "hr: " << m_higherRatio << " ratio: " << method->inRatio << std::endl; *1/ */
-/*     /1* std::cout << "in: " << tensor_in.sizes() << std::endl; *1/ */
-/*   // SEND TENSOR TO DEVICE */
-/*   // no lock: multiple processes can happen at the same time */
-/*   tensor_in = tensor_in.to(m_device); */
-/*   std::vector<torch::jit::IValue> inputs = {tensor_in}; */
-
-/*   // PROCESS TENSOR */
-/*   try { */
-/*     script_method(inputs); */
-/*     /1* std::cout << "out: " << tensor_out.sizes() << std::endl; *1/ */
-/*   } catch (const std::exception &e) { */
-/*     std::cerr << e.what() << '\n'; */
-/*     return; */
-/*   } */
-/* } */
 
 }

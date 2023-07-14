@@ -15,16 +15,38 @@ code::
 ::
 The sclang interface instructs the server to load the .ts file, receives and
 stores models' info from the server, and keeps track of which models are loaded.
-Once a model is loaded, and its info received, it becomes possible to interact
-with it by creating UGens and getting/setting attributes.
+Once a model is loaded, and its info received, it becomes possible to create
+UGens for processing.
 
 subsection::Real-time processing
 You can get UGens for each models' method like this:
 code::
-	NN(\modelName, \methodName).ar(blockSize, inputs)
+	NN(\modelName, \methodName).ar(inputs, blockSize, debug, attributes)
 ::
 Each NN().ar UGen is specific to a loaded model and method. This is because
 different models and methods require different numbers of inputs and outputs.
+Each UGen loads an independent instance of the model, to make sure independent
+inferences on the same model don't interfere with each other. For this reason,
+setting attributes is supported only at the UGen level.
+
+subsection::Attributes
+Torchscript can support settable attributes:
+code::
+	NN(\modelName, \methodName).ar(inputs, attributes: [
+		attributeName: LFNoise0.kr(1),
+		anotherAttr: LFTri.kr(1).range(0, 10)
+	])
+::
+NNUGen accepts a list of pairs (attributeName, attributeValue), and will set
+each attribute when its value changes. It might be useful to limit the rate at
+which an attribute is set by using Latch:
+code::
+	NN(\modelName, \methodName).ar(inputs, attributes: [
+		temperature: Latch.kr(LFTri.kr(1).range(0, 10))
+	], debug: 1)
+::
+With code::debug: 1::, NNUGen will print the attribute value every time it's
+set. The printed value is read from the model for every print.
 
 subsection::NRT processing
 In order to load and play with models on an NRT server, models' informations
@@ -45,8 +67,8 @@ a = Score([
 		// synthdefs: use .doSend(s) to get them into the bundle
 		SynthDef(\nnfb) { |out=0|
 			var fb = LocalIn.ar(1);
-			var sig = NN(\b, \forward).ar(512,
-					NN(\a, \forward).ar(512, fb)
+			var sig = NN(\b, \forward).ar(
+					NN(\a, \forward).ar(fb)
 			);
 			LocalOut.ar(sig);
 			Out.ar(out, sig);
@@ -89,32 +111,18 @@ Score([
 ::
 
 subsection:: First-execution warmup
-If after a model is loaded, its methods are very slow for the first execution,
-and then become much faster, it might be due to torchscript performing
-optimization during the first pass. NN offers a method to perform this first
-"warmup" pass non-realtime:
+If after a model methods are very slow for the first execution right after the
+model is loaded, and then become much faster, it might be due to torchscript performing
+optimization during the first pass. NN offers a way of performing this first
+pass silently:
 
 code::
-fork {
-	NN.load(\model, "path/to/model.ts");
-	s.sync;	
-	{ NN(\model, \forward).ar(-1, WhiteNoise.ar) }.play
+	{ NN(\model, \forward).ar(WhiteNoise.ar) }.play
 	// long dropouts at first, then fine
-}
 
-
-fork {
-	NN.load(\model2, "path/to/model.ts");
-	NN(\model2).warmup;
-	{ NN(\model2, \forward).ar(-1, WhiteNoise.ar) }.play
-	// no initial dropouts
-}
-
-// do right after load
-NN.load(\model2, "path/to/model.ts", action:_.warmup);
+	{ NN(\model, \forward).ar(WhiteNoise.ar, warmup: 1) }.play
+	// longer silence, but no initial stuttering
 ::
-See link::Classes/NNModel#-warmup:: to warmup all the methods a model has, and
-link::Classes/NNModelMethod#-warmup:: to warm up a specific one.
 
 classmethods::
 
@@ -217,15 +225,6 @@ the path to a file where the server is going to write model info. Defaults to
 code::nil:: which disables writing to a file (useful for NRT servers since they
 can't write to files).
 
-method:: setMsg
-Returns the OSC message for the server to set a loaded model's attribute.
-argument::modelIdx
-an Integer that identifies an already loaded model on the server.
-argument::attrIdx
-an Integer that indentifies the desired attribute to be set.
-argument::value
-the attribute value being set.
-
 method:: dumpInfoMsg
 Returns the OSC message for the server to print models info or write them to a
 file
@@ -245,24 +244,33 @@ code::
 
 (
 // loading
-s.options.memSize = 2**11;
 s.reboot.waitForBoot {
 	NN.load(\rave, "~/rave/model.ts", action: _.describe)
 	NN.load(\prior, "~/msprior/prior_model.ts": action: _.describe)
 };
 )
 
-(
 // playing
+
+// resynth live input
+{ NN(\rave, \forward).ar(SoundIn.ar) }.play
+
+(
+// blockSize: -1 disables aync processing
+// processing is now synchronous, but it can generate more dropouts
+{ NN(\rave, \forward).ar(SoundIn.ar, blockSize: -1) }
+)
+
+(
 {
 	// drive with a sine wave sound
 	var in = SinOsc.ar(MouseX.kr.exprange(20,20000));
 	// encode input sound to latent space
-	var latent = NN(\rave, \encode).ar(2048, in);
+	var latent = NN(\rave, \encode).ar(in);
 	// modulate latent space trajectories...
 	var mod = latent.collect {|l| l + LFNoise1.ar(1).range(-1,1) };
 	// resynth
-	NN(\rave, \decode).ar(2048, mod);
+	NN(\rave, \decode).ar(mod);
 }.play
 )
 
@@ -270,12 +278,12 @@ s.reboot.waitForBoot {
 {
 	var in = WhiteNoise.ar();
 	// encode input sound to latent space
-	var latent = NN(\rave, \encode).ar(2048, in);
+	var latent = NN(\rave, \encode).ar(in);
 	// generate new latent codes with msprior
-	var prior = NN(\prior, \forward).ar(1024, latent);
+	var prior = NN(\prior, \forward).ar(latent);
 	// resynth latent codes to sound out
 	// dropping the last prior element because msprior returns perplexity as 9th output
-	var resynth = NN(\rave, \decode).ar(2048, prior.drop(-1));
+	var resynth = NN(\rave, \decode).ar(prior.drop(-1));
 
 	resynth;
 }.play

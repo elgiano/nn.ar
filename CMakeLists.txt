@@ -98,8 +98,8 @@ set(NNUGens_cpp_files
     plugins/NNModel/cpp/NNUGens.cpp
     plugins/NNModel/cpp/NNModel.cpp
     plugins/NNModel/cpp/NNModelCmd.cpp
-    plugins/NNModel/cpp/backend.cpp
-    plugins/NNModel/cpp/parsing_utils.cpp
+    plugins/NNModel/cpp/backend/backend.cpp
+    plugins/NNModel/cpp/backend/parsing_utils.cpp
 )
 set(NNUGens_sc_files
     plugins/NNModel/sc/NN.sc
@@ -111,8 +111,6 @@ set(NNUGens_schelp_files
     plugins/NNModel/schelp/NNModel.schelp
     plugins/NNModel/schelp/NNModelMethod.schelp
     plugins/NNModel/schelp/NN.schelp
-    plugins/NNModel/schelp/NNGet.schelp
-    plugins/NNModel/schelp/NNSet.schelp
 )
 
 sc_add_server_plugin(

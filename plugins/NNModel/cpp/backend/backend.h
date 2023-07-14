@@ -1,5 +1,3 @@
-// backend.h from nn_tilde: only added friend NNModel
-
 #pragma once
 #include <mutex>
 #include <string>
@@ -7,9 +5,7 @@
 #include <torch/torch.h>
 #include <vector>
 
-namespace NN { class NNModel; }
 class Backend {
-  friend NN::NNModel;
 protected:
   torch::jit::script::Module m_model;
   int m_loaded;
@@ -41,4 +37,3 @@ public:
   torch::jit::script::Module get_model() { return m_model; }
   void use_gpu(bool value);
 };
-

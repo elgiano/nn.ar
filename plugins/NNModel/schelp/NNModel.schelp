@@ -52,27 +52,6 @@ the path to a temporary file where the server is going to write model info.
 
 instancemethods::
 
-method::set
-Sets a model attribute to a value. Torchscript attributes need to be of the
-correct data type: supported value types are boolean, integer,
-float and string, for which the server is able to convert to the required type
-automatically (e.g. values of 1 or 1.0 or '1' are all valid to signify 'true' if
-the attribute requires a boolean value).
-See link::Classes/NNGet:: to retrieve an attribute value, and
-link::Classes/NNSet:: to set an attribute using values from a UGen.
-argument::attributeName
-argument::value
-
-method::warmup
-Performs one processing pass for all model's methods, not in real-time, because
-model optimizations
-happening in its first execution can be heavy on the audio chain (see
-link::Classes/NN#First-execution warmup::).
-
-note:: this method waits for the warmup to be completed using
-link::Classes/Server#-sync::. If this method is not executed in a
-link::Classes/Routine::, it forks one.::
-
 method::describe
 Prints a description of the model: all available model methods with the
 respective numbers of inputs and outputs, and all the settable attributes.
@@ -98,9 +77,6 @@ Path of the torchscript file loaded by this model.
 
 method::key
 
-
-
-
 examples::
 
 code::
@@ -114,10 +90,11 @@ s.bind {
 	NN(\rave).describe;
 }
 
-// setting an attribute
-NN(\rave).set(\temperature, 1);
+// print all available methods
+NN(\rave).methods
+// print all settable attributes
+NN(\rave).attributes
 
 // play
-{ NN(\rave, \forward).ar(1024, WhiteNoise.ar) }.play
-
+{ NN(\rave, \forward).ar(WhiteNoise.ar) }.play
 ::

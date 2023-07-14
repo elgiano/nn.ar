@@ -1,23 +1,27 @@
 // NNModel.hpp
 
 #pragma once
-#include "backend.h"
 #include <ostream>
+#include <vector>
+#include <map>
 
 namespace NN {
 
+// store info about a model method
 class NNModelMethod {
 public:
-  NNModelMethod(std::string name, const std::vector<int>& params);
+  // read method params from model
+  NNModelMethod(const std::string& name, const std::vector<int>& params);
 
   std::string name;
   int inDim, inRatio, outDim, outRatio;
 };
 
+// read and store model information
 class NNModelDesc {
 public:
 
-  // load .ts
+  // load .ts, just to read info
   bool load(const char* path);
   
   // info
@@ -37,6 +41,7 @@ public:
   bool m_loaded = false;
 };
 
+// register model info by int id
 class NNModelDescLib {
 public:
   NNModelDescLib();
@@ -45,7 +50,7 @@ public:
   NNModelDesc* load(unsigned short id, const char* path);
   void unload(unsigned short id);
   /* void reload(unsigned short id); */
-  //
+
   // get stored model
   NNModelDesc* get(unsigned short id, bool warn=true) const;
   // all loaded models info
