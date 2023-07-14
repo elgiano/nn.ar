@@ -158,23 +158,6 @@ NNModelMethod {
     ^this.class.newCopyArgs(model, name, idx, numInputs, numOutputs)
   }
 
-	ar { |inputs, bufferSize=0, warmup=0, debug=0, attributes(#[])|
-		var attrParams;
-		inputs = inputs.asArray;
-		if (inputs.size != this.numInputs) {
-			Error("NNModel: method % has % inputs, but was given %."
-				.format(this.name, this.numInputs, inputs.size)).throw
-		};
-
-		attrParams = Array(attributes.size);
-		attributes.pairsDo { |attrName, attrValue|
-			attrParams.add(model.attrIdx(attrName));
-			attrParams.add(attrValue ?? 0);
-		};
-
-		^NNUGen.ar(model.idx, idx, bufferSize, this.numOutputs, inputs ++ attrParams, warmup, debug)
-	}
-
 	printOn { |stream|
 		stream << "%(%: % in, % out)".format(this.class.name, name, numInputs, numOutputs);
 	}

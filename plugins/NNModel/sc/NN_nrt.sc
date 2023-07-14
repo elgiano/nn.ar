@@ -1,11 +1,17 @@
+NNNRTEnv {
+	var <modelAllocator, <modelsInfo, <models;
+	*new { ^super.new.init }
+	init {
+		modelAllocator = ContiguousBlockAllocator(1024);
+		modelsInfo = IdentityDictionary[];
+		models = IdentityDictionary[];
+	}
+}
+
 +NN {
 
 	*nrt { |infoFile, makeBundleFn|
-		^Environment[\nn_nrt -> (
-      modelAllocator: ContiguousBlockAllocator(1024),
-      modelsInfo: IdentityDictionary[],
-      models: IdentityDictionary[]
-    )].use { 
+		^Environment[\nn_nrt -> NNNRTEnv()].use { 
       NN.prReadInfoFile(infoFile);
       Server.default.makeBundle(false, makeBundleFn)
     };	
@@ -23,7 +29,7 @@
 		}
 	}
 
-  *isNRT { ^currentEnvironment[\nn_nrt].notNil }
+  *isNRT { ^currentEnvironment[\nn_nrt].isKindOf(NNNRTEnv) }
 
   *nrtModelStore {
     if (this.isNRT.not) { ^nil };
