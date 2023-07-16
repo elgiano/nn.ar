@@ -1,6 +1,7 @@
 NNUGen : MultiOutUGen {
 
-	*ar { |modelIdx, methodIdx, bufferSize, numOutputs, inputs, warmup, debug|
+  // enum UGenInputs { modelIdx=0, methodIdx, bufSize, warmup, debug, inputs };
+	*ar { |modelIdx, methodIdx, bufferSize, numOutputs, warmup, debug, inputs|
 		^this.new1('audio', modelIdx, methodIdx, bufferSize, warmup, debug, *inputs)
 			.initOutputs(numOutputs, 'audio');
 	}
@@ -32,6 +33,6 @@ NNUGen : MultiOutUGen {
 			attrParams.add(attrValue ?? 0);
 		};
 
-		^NNUGen.ar(model.idx, idx, bufferSize, this.numOutputs, inputs ++ attrParams, warmup, debug)
+		^NNUGen.ar(model.idx, idx, bufferSize, this.numOutputs, warmup, debug, inputs ++ attrParams)
 	}
 }

@@ -18,7 +18,7 @@ enum Debug { none=0, attributes=1, all=2 };
 
 class NNSetAttr {
 public:
-  std::string attrName;
+  std::string name;
   // remember in0 indices
   int inputIdx;
 
@@ -40,28 +40,44 @@ private:
   bool valUpdated = false;
 };
 
-class NN : public SCUnit {
+class NN {
 public:
+  NN(World* world, NNModelDesc* modelDesc, NNModelMethod* modelMethod,
+     float* inModel, float* outModel,  RingBuf* m_inBuffer, RingBuf* m_outBuffer,
+     int bufferSize, int m_debug);
 
-  NN();
   ~NN();
 
-  void next(int nSamples);
-  void freeBuffers();
-  void setupAttributes();
   void warmupModel();
 
+  RingBuf* m_inBuffer;
+  RingBuf* m_outBuffer;
   float* m_inModel;
   float* m_outModel;
   NNModelDesc* m_modelDesc;
   NNModelMethod* m_method;
+  World* mWorld;
+  std::vector<NNSetAttr> m_attributes;
   Backend m_model;
   int m_inDim, m_outDim;
   int m_bufferSize, m_debug;
-  std::vector<NNSetAttr> m_attributes;
+  std::thread* m_compute_thread;
   std::binary_semaphore m_data_available_lock, m_result_available_lock;
   bool m_should_stop_perform_thread;
   bool m_warmup;
+};
+
+class NNUGen : public SCUnit {
+public:
+
+  NNUGen();
+  ~NNUGen();
+
+  void next(int nSamples);
+  void freeBuffers();
+  void setupAttributes();
+
+  NN* m_sharedData;
 
 private:
   enum UGenInputs { modelIdx=0, methodIdx, bufSize, warmup, debug, inputs };
@@ -71,10 +87,11 @@ private:
 
   RingBuf* m_inBuffer;
   RingBuf* m_outBuffer;
-  int16 m_ugenId;
+  float* m_inModel;
+  float* m_outModel;
+  int m_inDim, m_outDim;
+  int m_bufferSize, m_debug;
   bool m_useThread;
-
-  std::unique_ptr<std::thread> m_compute_thread;
 };
 
 } // namespace NN
