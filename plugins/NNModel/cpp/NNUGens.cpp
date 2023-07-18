@@ -20,7 +20,7 @@ T* rtAlloc(World* world, size_t size=1) {
 
 namespace NN {
 
-static NNModelMethod* getModelMethod(NNModelDesc* model, float methodIdx) {
+static const NNModelMethod* getModelMethod(const NNModelDesc* model, float methodIdx) {
   if (model == nullptr) return nullptr;
 
   auto method = model->getMethod(static_cast<unsigned short>(methodIdx));
@@ -34,8 +34,8 @@ void NNUGen::clearOutputs(int nSamples) {
 }
 
 // ATTRIBUTES
-NNSetAttr::NNSetAttr(std::string name, int inputIdx, float initVal):
-    name(name), inputIdx(inputIdx), value(initVal), valUpdated(true) {}
+NNSetAttr::NNSetAttr(const NNModelAttribute* attr, int inputIdx, float initVal):
+    attr(attr), inputIdx(inputIdx), value(initVal), valUpdated(true) {}
 
 void NNSetAttr::update(Unit* unit, int nSamples) {
   float newval = IN0(inputIdx);
@@ -50,10 +50,10 @@ void NNUGen::setupAttributes() {
   int i = UGenInputs::inputs + m_inDim;
   while (i < numInputs()) {
     int attrIdx = in0(i);
-    std::string attrName = m_sharedData->m_modelDesc->getAttributeName(attrIdx, true);
-    if (!attrName.empty()) {
+    auto attr = m_sharedData->m_modelDesc->getAttribute(attrIdx, true);
+    if (attr != nullptr) {
       int inputIdx = i + 1;
-      NNSetAttr setter(attrName, inputIdx, in0(inputIdx));
+      NNSetAttr setter(attr, inputIdx, in0(inputIdx));
       m_sharedData->m_attributes.push_back(setter);
     } else {
       Print("NNUGen: attribute #%d not found\n", attrIdx);
@@ -65,15 +65,16 @@ void NNUGen::setupAttributes() {
 static void model_perform_attributes(NN* nn_instance) {
   for(auto& attr: nn_instance->m_attributes) {
     if(!attr.changed()) continue;
+    const char* attrName = attr.getName();
     try {
-      nn_instance->m_model.set_attribute(attr.name, {attr.getStrValue()});
+      nn_instance->m_model.set_attribute(attrName, {attr.getStrValue()});
       // print attr value if debugging
       if (nn_instance->m_debug >= Debug::attributes) {
-        auto currVal = nn_instance->m_model.get_attribute_as_string(attr.name);
-        Print("%s: %s\n", attr.name.c_str(), currVal.c_str());
+        auto currVal = nn_instance->m_model.get_attribute_as_string(attrName);
+        Print("%s: %s\n", attrName, currVal.c_str());
       }
     } catch (...) {
-      Print("NNUGen: can't set attribute %s\n", attr.name.c_str());
+      Print("NNUGen: can't set attribute %s\n", attrName);
     }
   };
 }
@@ -81,21 +82,21 @@ static void model_perform_attributes(NN* nn_instance) {
 // PERFORM
 
 void model_perform_load(NN* nn, bool warmup) {
-  auto path = nn->m_modelDesc->m_path;
+  auto path = nn->m_modelDesc->getPath();
   if (nn->m_debug >= Debug::all)
-    Print("NNUGen: loading model %s\n", path.c_str());
-  int err = nn->m_model.load(nn->m_modelDesc->m_path);
+    Print("NNUGen: loading model %s\n", path);
+  int err = nn->m_model.load(path);
   if (err) {
-    Print("NNUGen: ERROR loading model %s\n", path.c_str());
+    Print("NNUGen: ERROR loading model %s\n", path);
     return;
   }
   if(warmup) {
     if (nn->m_debug >= Debug::all)
-      Print("NNUGen: warming up model\n", path.c_str());
+      Print("NNUGen: warming up model\n", path);
     nn->warmupModel();
   }
   if (nn->m_debug >= Debug::all)
-    Print("NNUGen: loaded %s\n", path.c_str());
+    Print("NNUGen: loaded %s\n", path);
 }
 
 void model_perform_cleanup(NN* nn_instance) {
@@ -183,7 +184,7 @@ void NNUGen::next(int nSamples) {
 
 NN::NN(
   World* world,
-  NNModelDesc* modelDesc, NNModelMethod* modelMethod,
+  const NNModelDesc* modelDesc, const NNModelMethod* modelMethod,
   float* inModel, float* outModel,  
   RingBuf* inRing, RingBuf* outRing,
   int bufferSize, int debug): 
@@ -205,8 +206,8 @@ NNUGen::NNUGen():
   m_inBuffer(nullptr), m_outBuffer(nullptr)
 {
   auto modelIdx = static_cast<unsigned short>(in0(UGenInputs::modelIdx));
-  NNModelDesc* modelDesc = gModels.get(modelIdx);
-  NNModelMethod* modelMethod = nullptr;
+  const NNModelDesc* modelDesc = gModels.get(modelIdx);
+  const NNModelMethod* modelMethod = nullptr;
   if (modelDesc)
     modelMethod = getModelMethod(modelDesc, in0(UGenInputs::methodIdx));
   if (modelMethod == nullptr) {
@@ -221,14 +222,15 @@ NNUGen::NNUGen():
 
   // don't use external thread on NRT
   m_useThread = mWorld->mRealTime;
+  int modelHigherRatio = modelDesc->getHigherRatio();
   if (m_bufferSize < 0) {
     // NO THREAD MODE
     m_useThread = false;
-    m_bufferSize = modelDesc->m_higherRatio;
+    m_bufferSize = modelHigherRatio;
   } else if (m_bufferSize == 0) {
-    m_bufferSize = modelDesc->m_higherRatio;
-  } else if (m_bufferSize < modelDesc->m_higherRatio) {
-    m_bufferSize = modelDesc->m_higherRatio;
+    m_bufferSize = modelHigherRatio;
+  } else if (m_bufferSize < modelHigherRatio) {
+    m_bufferSize = modelHigherRatio;
     Print("NNUGen: buffer size to small, switching to %d.\n", m_bufferSize);
   } else {
     int pow2 = NEXTPOWEROFTWO(m_bufferSize);

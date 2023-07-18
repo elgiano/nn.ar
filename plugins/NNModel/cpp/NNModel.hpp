@@ -10,38 +10,52 @@ namespace NN {
 // store info about a model method
 class NNModelMethod {
 public:
-  // read method params from model
+  // read method params from model method's params
   NNModelMethod(const std::string& name, const std::vector<int>& params);
 
   std::string name;
   int inDim, inRatio, outDim, outRatio;
 };
 
+enum NNAttributeType { typeBool, typeInt, typeDouble, typeOther };
+struct NNModelAttribute {
+  NNAttributeType type;
+  std::string name;
+};
+
 // read and store model information
+// needed mostly to avoid passing strings to UGens
 class NNModelDesc {
 public:
+
+  NNModelDesc(unsigned short id);
 
   // load .ts, just to read info
   bool load(const char* path);
   
+  const NNModelMethod* getMethod(unsigned short idx, bool warn=true) const;
+  const NNModelAttribute* getAttribute(unsigned short idx, bool warn=true) const;
+
   // info
-  bool is_loaded() { return m_loaded; }
+  bool is_loaded() const { return m_loaded; }
   void streamInfo(std::ostream& dest) const;
   bool dumpInfo(const char* filename) const;
   void printInfo() const;
+  int getHigherRatio() const { return m_higherRatio; }
+  const char* getPath() const { return m_path.c_str(); }
 
-  NNModelMethod* getMethod(unsigned short idx, bool warn=true);
-  std::string getAttributeName(unsigned short idx, bool warn=true) const;
 
-  std::string m_path;
-  unsigned short m_idx;
+private:
   std::vector<NNModelMethod> m_methods;
-  std::vector<std::string> m_attributes;
+  std::vector<NNModelAttribute> m_attributes;
   int m_higherRatio;
+  unsigned short m_idx;
   bool m_loaded = false;
+  std::string m_path;
 };
 
 // register model info by int id
+// used as a global NNModelDesc store
 class NNModelDescLib {
 public:
   NNModelDescLib();

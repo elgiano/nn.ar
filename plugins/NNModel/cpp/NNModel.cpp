@@ -9,13 +9,7 @@ extern InterfaceTable* ft;
 
 namespace NN {
 
-NNModelMethod::NNModelMethod(const std::string& name, const std::vector<int>& params):
-name(name) {
-  inDim = params[0];
-  inRatio = params[1];
-  outDim = params[2];
-  outRatio = params[3];
-}
+NNModelDesc::NNModelDesc(unsigned short id): m_idx(id) {}
 
 bool NNModelDesc::load(const char* path) {
   Print("NNModelDesc: loading %s\n", path);
@@ -35,25 +29,35 @@ bool NNModelDesc::load(const char* path) {
 
   // cache methods
   if (m_methods.size() > 0) m_methods.clear();
-  for (std::string name: backend.get_available_methods()) {
+  for (const std::string& name: backend.get_available_methods()) {
     auto params = backend.get_method_params(name);
     // skip methods with no params
     if (params.size() == 0) continue;
-    NNModelMethod m(name, params);
-    m_methods.push_back(m);
+    m_methods.push_back({name, params});
   }
 
   // cache attributes
   if (m_attributes.size() > 0) m_attributes.clear();
   for (const std::string& name: backend.get_settable_attributes()) {
-    m_attributes.push_back(name);
+    try {
+      c10::IValue value = backend.get_attribute(name)[0];
+      NNAttributeType attrType;
+      if (value.isBool()) attrType = NNAttributeType::typeBool;
+      else if (value.isInt())  attrType = NNAttributeType::typeInt;
+      else if (value.isDouble()) attrType = NNAttributeType::typeDouble;
+      else attrType = NNAttributeType::typeOther;
+      /* Print("attr %s %d\n", name.c_str(), attrType); */ 
+      m_attributes.push_back({attrType, name});
+    } catch (...) {
+      Print("NNModelDesc: couldn't read attribute '%s'\n", name.c_str());
+    } 
   }
 
   m_loaded = true;
   return true;
 }
 
-NNModelMethod* NNModelDesc::getMethod(unsigned short idx, bool warn) {
+const NNModelMethod* NNModelDesc::getMethod(unsigned short idx, bool warn) const {
   try {
     return &m_methods.at(idx);
   } catch (const std::out_of_range&) {
@@ -62,15 +66,22 @@ NNModelMethod* NNModelDesc::getMethod(unsigned short idx, bool warn) {
   }
 }
 
-std::string NNModelDesc::getAttributeName(unsigned short idx, bool warn) const {
+const NNModelAttribute* NNModelDesc::getAttribute(unsigned short idx, bool warn) const {
   try {
-    return m_attributes.at(idx);
+    return &m_attributes.at(idx);
   } catch (const std::out_of_range&) {
     if (warn) Print("NNBackend: attribute %d not found\n", idx);
-    return "";
+    return nullptr;
   }
 }
 
+NNModelMethod::NNModelMethod(const std::string& name, const std::vector<int>& params):
+name(name) {
+  inDim = params[0];
+  inRatio = params[1];
+  outDim = params[2];
+  outRatio = params[3];
+}
 
 NNModelDescLib::NNModelDescLib(): models(), modelCount(0) {}
 
@@ -90,7 +101,7 @@ NNModelDesc* NNModelDescLib::get(unsigned short id, bool warn) const {
     if (warn) {
       Print("NNModelDescLib: id %d not found. Loaded models:%s\n", id, models.size() ? "" : " []");
       for (auto kv: models) {
-        Print("id: %d -> %s\n", kv.first, kv.second->m_path.c_str());
+        Print("id: %d -> %s\n", kv.first, kv.second->getPath());
       }
     };
     found = false;
@@ -122,7 +133,7 @@ NNModelDesc* NNModelDescLib::load(unsigned short id, const char* path) {
   auto model = get(id, false);
   /* Print("NNBackend: loading model %s at idx %d\n", path, id); */
   if (model != nullptr) {
-    if (model->m_path == path) {
+    if (model->getPath() == path) {
       Print("NNBackend: model %d already loaded %s\n", id, path);
       return model;
     } else {
@@ -130,14 +141,13 @@ NNModelDesc* NNModelDescLib::load(unsigned short id, const char* path) {
     }
   }
 
-  model = new NNModelDesc();
+  model = new NNModelDesc(id);
   if (model->load(path)) {
     models[id] = model;
-    model->m_idx = id;
     modelCount++;
     return model;
   } else {
-    /* delete model; */
+    delete model;
     return nullptr;
   }
 }
@@ -151,8 +161,8 @@ void NNModelDescLib::unload(unsigned short id) {
 }
 
 bool NNModelDescLib::dumpAllInfo(const char* filename) const {
-  std::ofstream file;
   try {
+    std::ofstream file;
     file.open(filename);
     if (!file.is_open()) {
       Print("ERROR: NNBackend couldn't open file %s\n", filename);
@@ -175,7 +185,7 @@ void NNModelDesc::streamInfo(std::ostream& stream) const {
     << "\n  modelPath: " << m_path.c_str()
     << "\n  minBufferSize: " << m_higherRatio
     << "\n  methods:";
-  for (auto m: m_methods) {
+  for (const auto& m: m_methods) {
     stream << "\n    - name: " << m.name
       << "\n      inDim: " << m.inDim
       << "\n      inRatio: " << m.inRatio
@@ -184,8 +194,8 @@ void NNModelDesc::streamInfo(std::ostream& stream) const {
   }
   if (m_attributes.size() > 0) {
     stream << "\n  attributes:";
-    for(std::string attr: m_attributes)
-      stream << "\n    - " << attr; 
+    for(const auto& attr: m_attributes)
+      stream << "\n    - " << attr.name; 
   }
   stream << "\n";
 }
@@ -196,8 +206,8 @@ void NNModelDesc::printInfo() const {
 }
 
 bool NNModelDesc::dumpInfo(const char* filename) const {
-  std::ofstream file;
   try {
+    std::ofstream file;
     file.open(filename);
     if (!file.is_open()) {
       Print("ERROR: NNBackend couldn't open file %s\n", filename);
@@ -213,6 +223,4 @@ bool NNModelDesc::dumpInfo(const char* filename) const {
   }
 }
 
-
-
-}
+} // namespace NN

@@ -18,19 +18,26 @@ enum Debug { none=0, attributes=1, all=2 };
 
 class NNSetAttr {
 public:
-  std::string name;
+  const NNModelAttribute* attr;
   // remember in0 indices
   int inputIdx;
 
-  NNSetAttr(std::string name, int inputIdx, float initVal);
+  NNSetAttr(const NNModelAttribute* attr, int inputIdx, float initVal);
 
   // called in audio thread: check trig, update value and flag
   void update(Unit* unit, int nSamples);
 
   bool changed() const { return valUpdated; }
   // called before model_perform
+  const char* getName() {
+    return attr->name.c_str();
+  }
   std::string getStrValue() {
     valUpdated = false;
+    if (attr->type == NNAttributeType::typeBool)
+      return value > 0 ? "true" : "false";
+    else if (attr->type == NNAttributeType::typeInt)
+      return std::to_string(static_cast<int>(value));
     return std::to_string(value);
   }
 
@@ -42,7 +49,7 @@ private:
 
 class NN {
 public:
-  NN(World* world, NNModelDesc* modelDesc, NNModelMethod* modelMethod,
+  NN(World* world, const NNModelDesc* modelDesc, const NNModelMethod* modelMethod,
      float* inModel, float* outModel,  RingBuf* m_inBuffer, RingBuf* m_outBuffer,
      int bufferSize, int m_debug);
 
@@ -54,8 +61,8 @@ public:
   RingBuf* m_outBuffer;
   float* m_inModel;
   float* m_outModel;
-  NNModelDesc* m_modelDesc;
-  NNModelMethod* m_method;
+  const NNModelDesc* m_modelDesc;
+  const NNModelMethod* m_method;
   World* mWorld;
   std::vector<NNSetAttr> m_attributes;
   Backend m_model;
