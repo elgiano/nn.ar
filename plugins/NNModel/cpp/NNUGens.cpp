@@ -141,7 +141,7 @@ void model_perform_loop(NN *nn_instance, bool warmup) {
 
 void NNUGen::next(int nSamples) {
 
-  if (!m_sharedData->m_modelDesc->is_loaded() || mDone) {
+  if (!m_sharedData->m_modelDesc->is_loaded()) {
     ClearUnitOutputs(this, nSamples);
     return;
   };
@@ -211,7 +211,6 @@ NNUGen::NNUGen():
   if (modelDesc)
     modelMethod = getModelMethod(modelDesc, in0(UGenInputs::methodIdx));
   if (modelMethod == nullptr) {
-    mDone = true;
     set_calc_function<NNUGen, &NNUGen::clearOutputs>();
     return;
   }
@@ -242,7 +241,6 @@ NNUGen::NNUGen():
 
   if (bufferSize() > m_bufferSize) {
     Print("NNUGen: blockSize(%d) larger than model bufferSize(%d), disabling\n", bufferSize(), m_bufferSize);
-    mDone = true;
     set_calc_function<NNUGen, &NNUGen::clearOutputs>();
     return;
   }

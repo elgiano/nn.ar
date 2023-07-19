@@ -64,14 +64,15 @@ public:
   const NNModelDesc* m_modelDesc;
   const NNModelMethod* m_method;
   World* mWorld;
-  std::vector<NNSetAttr> m_attributes;
-  Backend m_model;
-  int m_inDim, m_outDim;
-  int m_bufferSize, m_debug;
   std::thread* m_compute_thread;
   std::binary_semaphore m_data_available_lock, m_result_available_lock;
+  int m_inDim, m_outDim;
+  int m_bufferSize, m_debug;
+  std::vector<NNSetAttr> m_attributes;
+  Backend m_model;
   bool m_should_stop_perform_thread;
-  bool m_warmup;
+  bool m_enabled;
+  bool m_useGpu;
 };
 
 class NNUGen : public SCUnit {
