@@ -20,9 +20,9 @@ The key at which the model was loaded by link::Classes/NNModel#*load::
 argument::methodName
 argument::bufferSize
 the number of samples processed at once by the model. Larger values can make for
-smoother results, at the cost of more latency. It could be set to -1 to
-choose the minimum value available and disable the external computation thread.
-If set to a value less than the model's minBufferSize, it will be set to
+smoother results, at the cost of more latency. If set to -1 (default) or 0, the minimum
+value allowed by the model is chosen. Setting to 0 also disables the external computation thread.
+Otherwise, if set to a value less than the model's minBufferSize, it will be set to
 minBufferSize automatically by the server.
 argument::inputs
 an Array of inputs to the model. It must be of the correct size for the selected

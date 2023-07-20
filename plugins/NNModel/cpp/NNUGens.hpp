@@ -27,11 +27,9 @@ public:
   // called in audio thread: check trig, update value and flag
   void update(Unit* unit, int nSamples);
 
+  const char* getName() const { return attr->name.c_str(); }
   bool changed() const { return valUpdated; }
   // called before model_perform
-  const char* getName() {
-    return attr->name.c_str();
-  }
   std::string getStrValue() {
     valUpdated = false;
     if (attr->type == NNAttributeType::typeBool)
@@ -71,8 +69,7 @@ public:
   std::vector<NNSetAttr> m_attributes;
   Backend m_model;
   bool m_should_stop_perform_thread;
-  bool m_enabled;
-  bool m_useGpu;
+  bool m_loaded;
 };
 
 class NNUGen : public SCUnit {

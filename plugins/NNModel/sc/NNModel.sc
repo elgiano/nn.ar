@@ -9,8 +9,8 @@ NNModel {
 
 	*new { ^nil }
 
-  minBufferSize { ^if (info.isNil) { nil } { info.minBufferSize } }
-  attributes { ^if(info.isNil, nil, info.attributes) }
+	minBufferSize { ^if (info.isNil) { nil } { info.minBufferSize } }
+	attributes { ^if(info.isNil) { nil } { info.attributes } }
 	attrIdx { |attrName|
 		var attrs = this.attributes ?? { ^nil };
 		^attrs.indexOf(attrName);
@@ -19,7 +19,7 @@ NNModel {
 	key { ^NN.keyForModel(this) }
 
 	method { |name|
-    var method;
+		var method;
 		this.methods ?? { Error("NNModel % has no methods.".format(this.key)).throw };
 		^this.methods.detect { |m| m.name == name };
 	}
@@ -47,17 +47,17 @@ NNModel {
 
 		model = super.newCopyArgs(server);
 
-    forkIfNeeded {
-      server.sync(bundles: [loadMsg]);
-      // server writes info file: read it
-      protect { 
-        model.initFromFile(infoFile);
+		forkIfNeeded {
+			server.sync(bundles: [loadMsg]);
+			// server writes info file: read it
+			protect { 
+				model.initFromFile(infoFile);
 				ServerBoot.add(model, server);
-        action.(model)
-      } {
-        File.delete(infoFile);
-      }
-    };
+				action.(model)
+			} {
+				File.delete(infoFile);
+			}
+		};
 
 		^model;
 	}
@@ -69,18 +69,18 @@ NNModel {
 		^super.newCopyArgs(server).initFromInfo(info, overrideId);
 	}
 
-  initFromFile { |infoFile|
-    var info = NNModelInfo.fromFile(infoFile);
-    this.initFromInfo(info);
-    NN.prCacheInfo(info);
-  }
+	initFromFile { |infoFile|
+		var info = NNModelInfo.fromFile(infoFile);
+		this.initFromInfo(info);
+		NN.prCacheInfo(info);
+	}
 
-  initFromInfo { |infoObj, overrideId|
-    info = infoObj;
-    path = info.path;
-    idx = overrideId ? info.idx;
-    methods = info.methods.collect { |m| m.copyForModel(this) }
-  }
+	initFromInfo { |infoObj, overrideId|
+		info = infoObj;
+		path = info.path;
+		idx = overrideId ? info.idx;
+		methods = info.methods.collect { |m| m.copyForModel(this) }
+	}
 
 	loadMsg { |newPath, infoFile|
 		^NN.loadMsg(idx, newPath ? path, infoFile)
@@ -104,29 +104,29 @@ NNModel {
 	}
 
 	prErrIfNoServer { |funcName|
-		if (server.isNil) {
-			Error("%: NNModel(%) is not bound to a server, can't dumpInfo. Is it a NRT model?"
-				.format(funcName, this.key)).throw
+	if (server.isNil) {
+		Error("%: NNModel(%) is not bound to a server, can't dumpInfo. Is it a NRT model?"
+			.format(funcName, this.key)).throw
 		};
 	}
 }
 
 NNModelInfo {
 	var <idx, <path, <minBufferSize, <methods, <attributes;
-  *new {}
+	*new {}
 
-  *fromFile { |infoFile|
-    if (File.exists(infoFile).not) {
-      Error("NNModelInfo: can't load info file '%'".format(infoFile)).throw;
-    } {
-      var yaml = File.readAllString(infoFile).parseYAML[0];
-      ^super.new.initFromDict(yaml)
-    }
-  }
+	*fromFile { |infoFile|
+		if (File.exists(infoFile).not) {
+			Error("NNModelInfo: can't load info file '%'".format(infoFile)).throw;
+		} {
+			var yaml = File.readAllString(infoFile).parseYAML[0];
+			^super.new.initFromDict(yaml)
+		}
+	}
 	*fromDict { |infoDict|
 		^super.new.initFromDict(infoDict);
 	}
-  initFromDict { |yaml|
+	initFromDict { |yaml|
 		idx = yaml["idx"].asInteger;
 		path = yaml["modelPath"];
 		minBufferSize = yaml["minBufferSize"].asInteger;
@@ -137,7 +137,7 @@ NNModelInfo {
 			NNModelMethod(nil, name, n, inDim, outDim);
 		};
 		attributes = yaml["attributes"].collect(_.asSymbol) ?? { [] }
-  }
+	}
 
 	describe {
 		"path: %".format(this.path).postln;
@@ -154,9 +154,9 @@ NNModelMethod {
 
 	*new { |...args| ^super.newCopyArgs(*args) }
 
-  copyForModel { |model|
-    ^this.class.newCopyArgs(model, name, idx, numInputs, numOutputs)
-  }
+	copyForModel { |model|
+		^this.class.newCopyArgs(model, name, idx, numInputs, numOutputs)
+	}
 
 	printOn { |stream|
 		stream << "%(%: % in, % out)".format(this.class.name, name, numInputs, numOutputs);

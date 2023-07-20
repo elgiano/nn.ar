@@ -1,15 +1,15 @@
 NNUGen : MultiOutUGen {
 
-  // enum UGenInputs { modelIdx=0, methodIdx, bufSize, warmup, debug, inputs };
+	// enum UGenInputs { modelIdx=0, methodIdx, bufSize, warmup, debug, inputs };
 	*ar { |modelIdx, methodIdx, bufferSize, numOutputs, warmup, debug, inputs|
 		^this.new1('audio', modelIdx, methodIdx, bufferSize, warmup, debug, *inputs)
 			.initOutputs(numOutputs, 'audio');
 	}
-	
+
 	checkInputs {
 		// modelIdx, methodIdx and bufferSize are not modulatable
 		['modelIdx', 'methodIdx', 'bufferSize'].do { |name, n|
-			if (inputs[n].rate != \scalar) {
+		if (inputs[n].rate != \scalar) {
 				^": '%' is not modulatable. Got: %.".format(name, inputs[n]);	
 			}
 		}
@@ -19,7 +19,7 @@ NNUGen : MultiOutUGen {
 
 + NNModelMethod {
 
-	ar { |inputs, bufferSize=0, warmup=0, debug=0, attributes(#[])|
+	ar { |inputs, bufferSize(-1), warmup=0, debug=0, attributes(#[])|
 		var attrParams;
 		inputs = inputs.asArray;
 		if (inputs.size != this.numInputs) {

@@ -16,8 +16,11 @@ The array of inputs to the process. It must be the correct size
 (link::NNModelMethod#-numInputs::), otherwise an Error is thrown. If the model
 requires only one input, it can be provided outside an array.
 argument::blockSize
-The number of samples to process at the same time. Set to choose the minimum
-buffer size available and to -1 to also disable processing on separate thread.
+the number of samples processed at once by the model. Larger values can make for
+smoother results, at the cost of more latency. If set to -1 (default) or 0, the minimum
+value allowed by the model is chosen. Setting to 0 also disables the external computation thread.
+Otherwise, if set to a value less than the model's minBufferSize, it will be set to
+minBufferSize automatically by the server.
 returns:: an Array of link::Classes/OutputProxy:: of size link::NNModelMethod#-numOutputs::.
 
 argument::warmup

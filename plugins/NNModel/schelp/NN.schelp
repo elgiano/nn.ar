@@ -42,7 +42,8 @@ each attribute when its value changes. It might be useful to limit the rate at
 which an attribute is set by using Latch:
 code::
 	NN(\modelName, \methodName).ar(inputs, attributes: [
-		temperature: Latch.kr(LFTri.kr(1).range(0, 10))
+		temperature: Latch.kr(LFTri.kr(1).range(0, 10)),
+		reset: MouseButton.kr(lag:0),
 	], debug: 1)
 ::
 With code::debug: 1::, NNUGen will print the attribute value every time it's
@@ -256,9 +257,9 @@ s.reboot.waitForBoot {
 { NN(\rave, \forward).ar(SoundIn.ar) }.play
 
 (
-// blockSize: -1 disables aync processing
+// blockSize: 0 disables aync processing
 // processing is now synchronous, but it can generate more dropouts
-{ NN(\rave, \forward).ar(SoundIn.ar, blockSize: -1) }
+{ NN(\rave, \forward).ar(SoundIn.ar, blockSize: 0) }
 )
 
 (

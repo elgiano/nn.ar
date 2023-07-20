@@ -95,6 +95,7 @@ void model_perform_load(NN* nn, bool warmup) {
       Print("NNUGen: warming up model\n", path);
     nn->warmupModel();
   }
+  nn->m_loaded = true;
   if (nn->m_debug >= Debug::all)
     Print("NNUGen: loaded %s\n", path);
 }
@@ -141,7 +142,7 @@ void model_perform_loop(NN *nn_instance, bool warmup) {
 
 void NNUGen::next(int nSamples) {
 
-  if (!m_sharedData->m_modelDesc->is_loaded()) {
+  if (!m_sharedData->m_loaded) {
     ClearUnitOutputs(this, nSamples);
     return;
   };
@@ -195,7 +196,7 @@ NN::NN(
   m_bufferSize(bufferSize), m_debug(debug),
   m_compute_thread(nullptr),
   m_data_available_lock(0), m_result_available_lock(1),
-  m_should_stop_perform_thread(false)
+  m_should_stop_perform_thread(false), m_loaded(false)
 {
   m_inDim = m_method->inDim;
   m_outDim = m_method->outDim;
@@ -223,10 +224,10 @@ NNUGen::NNUGen():
   m_useThread = mWorld->mRealTime;
   int modelHigherRatio = modelDesc->getHigherRatio();
   if (m_bufferSize < 0) {
-    // NO THREAD MODE
-    m_useThread = false;
     m_bufferSize = modelHigherRatio;
   } else if (m_bufferSize == 0) {
+    // NO THREAD MODE
+    m_useThread = false;
     m_bufferSize = modelHigherRatio;
   } else if (m_bufferSize < modelHigherRatio) {
     m_bufferSize = modelHigherRatio;

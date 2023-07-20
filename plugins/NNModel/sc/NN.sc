@@ -1,10 +1,9 @@
 NN {
-
 	classvar rtModelStore, rtModelsInfo;
 	*initClass {
-    rtModelStore = IdentityDictionary[];
-    // store model info by path
-    rtModelsInfo = IdentityDictionary[]
+		rtModelStore = IdentityDictionary[];
+		// store model info by path
+		rtModelsInfo = IdentityDictionary[]
 	}
 
 	*models {
@@ -20,14 +19,14 @@ NN {
 		if(this.isNRT, this.nrtModelStore, rtModelStore)[key] = model;
 	}
 
-  *prCacheInfo { |info|
+	*prCacheInfo { |info|
 		var cache = if(this.isNRT, this.nrtModelsInfo, rtModelsInfo);
 		var path = info.path.asSymbol;
-    if (cache[path].notNil) {
-      "NN: overriding cached info for '%'".format(path).warn;
-    };
-    cache[path] = info;
-  }
+		if (cache[path].notNil) {
+			"NN: overriding cached info for '%'".format(path).warn;
+		};
+		cache[path] = info;
+	}
 	*prGetCachedInfo { |path|
 		^if(this.isNRT, this.nrtModelsInfo, rtModelsInfo)[path.standardizePath.asSymbol]
 	}
@@ -44,31 +43,31 @@ NN {
 		};
 	}
 
-  *load { |key, path, id(-1), server(Server.default), action|
-    var model = this.model(key);
-    if (path.isKindOf(String).not) {
-      Error("NN.load: path needs to be a string, got: %").format(path).throw
-    };
-    if (model.isNil or: {model.isLoaded.not}) {
-      if (this.isNRT) {
-        var info =  this.prGetCachedInfo(path) ?? {
-          Error("NN.load (nrt): model info not found for %".format(path)).throw;
-        };
-        model = NNModel.fromInfo(info, this.nextModelID);
+	*load { |key, path, id(-1), server(Server.default), action|
+		var model = this.model(key);
+		if (path.isKindOf(String).not) {
+			Error("NN.load: path needs to be a string, got: %").format(path).throw
+		};
+		if (model.isNil or: {model.isLoaded.not}) {
+			if (this.isNRT) {
+				var info =  this.prGetCachedInfo(path) ?? {
+					Error("NN.load (nrt): model info not found for %".format(path)).throw;
+				};
+				model = NNModel.fromInfo(info, this.nextModelID);
 				this.prPut(key, model);
-      } {
-        model = NNModel.load(path, id, server, action: { |m|
-					this.prPut(key, m);
+			} {
+				model = NNModel.load(path, id, server, action: { |m|
+				this.prPut(key, m);
 					// call action after adding to registry: in case action needs key
 					action.value(m);
 				});
-      };
-    };
+			};
+		};
 		if (this.isNRT) {
 			server.sendMsg(*model.loadMsg);
 		}
-    ^model;
-  }
+		^model;
+	}
 
 	*describeAll { this.models.do(_.describe) }
 	
