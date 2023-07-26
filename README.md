@@ -154,3 +154,15 @@ For processing purposes, models are loaded by NNUGen. This is because each proce
 
 **Attributes**
 Since each UGen has its own independent instance of a model, attribute setting is only supported at the UGen level. Currently, attributes are updated each time their value changes, and we suggest to use systems like `Latch` to limit the setting rate (see example above).
+
+
+#### Latency considerations (RAVE)
+
+RAVE models can exhibit an important latency, from various sources. Here is what I found:
+
+**tl;dr**: if latency is important, consider training with --config causal.
+
+- first obvious source of latency is buffering: we fill a bufferSize of data before passing it to the model. With most of my rave v2 models, this is 2048/44100 = ~46ms.
+- then processing latency: on my 2048/44100 rave v2 models, on my i5 machine from 2016, this is between 15 and 30ms. That is very often bigger than 1024/44100 (~24ms, my usual hardware block size), so I have to use the external thread all the time to avoid pops.
+- rave intrinsic latency: cached convolutions introduce delay. From the paper [Streamable Neural Audio Synthesis With Non-Causal Convolutions](https://arxiv.org/abs/2204.07064), this can be about 650ms, making up for most of the latency on my system. Consider using models trained with `--config causal`, which reduces this latency to about 5ms, at the cost of a "small but consistent loss of accuracy".
+- transferring inputs to an external thread doesn't contribute significantly to latency (I've measured delays in the order of 0.1ms)
