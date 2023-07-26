@@ -16,6 +16,22 @@ using RingBuf = RingBufCtrl<float, float>;
 
 enum Debug { none=0, attributes=1, all=2 };
 
+/* class Timer { */
+/*   std::chrono::high_resolution_clock::time_point start; */
+/* public: */ 
+/*   Timer() { reset(); } */
+
+/*   void reset() { */
+/*     start = std::chrono::high_resolution_clock::now(); */
+/*   } */
+/*   void print(const char* label) { */
+/*     auto now = std::chrono::high_resolution_clock::now(); */
+/*     std::cout << label */
+/*       << std::chrono::duration_cast<std::chrono::milliseconds>(now - start) */
+/*       << std::endl; */
+/*   } */
+/* }; */
+
 class NNSetAttr {
 public:
   const NNModelAttribute* attr;
@@ -53,7 +69,7 @@ public:
 
   ~NN();
 
-  void warmupModel();
+  void warmupModel(int n_passes);
 
   RingBuf* m_inBuffer;
   RingBuf* m_outBuffer;
@@ -70,6 +86,7 @@ public:
   Backend m_model;
   bool m_should_stop_perform_thread;
   bool m_loaded;
+  /* Timer timer; */
 };
 
 class NNUGen : public SCUnit {

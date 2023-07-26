@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### v0.0.4-alpha
+- NNUGen: allow for a custom number of warmup passes (on my setup with rave v2 models, 2 warmup passes work well to avoid initial stuttering)
+
 ### v0.0.3-alpha
 changed implementation to independent per-UGen model instance
 - NN.load: scsynth only loads model to read info, real loading is done in UGen

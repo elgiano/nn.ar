@@ -112,18 +112,21 @@ Score([
 ::
 
 subsection:: First-execution warmup
-If after a model methods are very slow for the first execution right after the
-model is loaded, and then become much faster, it might be due to torchscript performing
-optimization during the first pass. NN offers a way of performing this first
-pass silently:
+If model processing is very slow for the first execution right after the
+model is loaded, and then becomes much faster, it might be due to torchscript performing
+optimizations during the first passes. NN offers a way of performing a custom
+number of processing passes silently:
 
 code::
 	{ NN(\model, \forward).ar(WhiteNoise.ar) }.play
 	// long dropouts at first, then fine
 
-	{ NN(\model, \forward).ar(WhiteNoise.ar, warmup: 1) }.play
+	{ NN(\model, \forward).ar(WhiteNoise.ar, warmup: 2) }.play
 	// longer silence, but no initial stuttering
 ::
+Warmup passes are done on an empty input buffer: the model processes "silent"
+inputs and discards their outputs before starting to process actual
+inputs.
 
 classmethods::
 

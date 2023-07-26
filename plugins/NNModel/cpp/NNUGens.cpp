@@ -6,6 +6,7 @@
 #include "rt_circular_buffer.h"
 #include "SC_InterfaceTable.h"
 #include "SC_PlugIn.hpp"
+#include <chrono>
 
 InterfaceTable* ft;
 
@@ -64,7 +65,7 @@ void NNUGen::setupAttributes() {
 
 static void model_perform_attributes(NN* nn_instance) {
   for(auto& attr: nn_instance->m_attributes) {
-    if(!attr.changed()) continue;
+    if (!attr.changed()) continue;
     const char* attrName = attr.getName();
     try {
       nn_instance->m_model.set_attribute(attrName, {attr.getStrValue()});
@@ -81,7 +82,7 @@ static void model_perform_attributes(NN* nn_instance) {
 
 // PERFORM
 
-void model_perform_load(NN* nn, bool warmup) {
+void model_perform_load(NN* nn, int warmup) {
   auto path = nn->m_modelDesc->getPath();
   if (nn->m_debug >= Debug::all)
     Print("NNUGen: loading model %s\n", path);
@@ -90,10 +91,10 @@ void model_perform_load(NN* nn, bool warmup) {
     Print("NNUGen: ERROR loading model %s\n", path);
     return;
   }
-  if(warmup) {
+  if (warmup > 0) {
     if (nn->m_debug >= Debug::all)
       Print("NNUGen: warming up model\n", path);
-    nn->warmupModel();
+    nn->warmupModel(warmup);
   }
   nn->m_loaded = true;
   if (nn->m_debug >= Debug::all)
@@ -108,18 +109,22 @@ void model_perform_cleanup(NN* nn_instance) {
 }
 
 void model_perform(NN* nn_instance) {
+  /* Timer timer; */
   std::vector<float *> in_model, out_model;
   for (int c(0); c < nn_instance->m_inDim; ++c)
     in_model.push_back(&nn_instance->m_inModel[nn_instance->m_bufferSize * c]);
   for (int c(0); c < nn_instance->m_outDim; ++c)
     out_model.push_back(&nn_instance->m_outModel[nn_instance->m_bufferSize * c]);
   model_perform_attributes(nn_instance);
+  /* timer.print("attrs:"); */
   nn_instance->m_model.perform(in_model, out_model,
                                nn_instance->m_bufferSize,
                                nn_instance->m_method->name, 1);
+  /* timer.print("perform:"); */
 }
 
-void model_perform_loop(NN *nn_instance, bool warmup) {
+
+void model_perform_loop(NN *nn_instance, int warmup) {
   model_perform_load(nn_instance, warmup);
   std::vector<float *> in_model, out_model;
   for (int c(0); c < nn_instance->m_inDim; ++c)
@@ -129,10 +134,13 @@ void model_perform_loop(NN *nn_instance, bool warmup) {
   while (!nn_instance->m_should_stop_perform_thread) {
     if (nn_instance->m_data_available_lock.try_acquire_for(
       std::chrono::milliseconds(200))) {
+        /* nn_instance->timer.print("received in:"); */
         model_perform_attributes(nn_instance);
+        /* Timer timer; */
         nn_instance->m_model.perform(in_model, out_model,
                                      nn_instance->m_bufferSize,
                                      nn_instance->m_method->name, 1);
+        /* timer.print("model perform:"); */
       nn_instance->m_result_available_lock.release();
     }
   }
@@ -167,6 +175,7 @@ void NNUGen::next(int nSamples) {
       for (int c(0); c < m_outDim; ++c)
         m_outBuffer[c].put(&m_outModel[c * m_bufferSize], m_bufferSize);
     } else if (m_sharedData->m_result_available_lock.try_acquire()) {
+      /* Print("sending\n"); m_sharedData->timer.reset(); */
       // TRANSFER MEMORY BETWEEN INPUT CIRCULAR BUFFER AND MODEL BUFFER
       for (int c(0); c < m_inDim; ++c)
         m_inBuffer[c].get(&m_inModel[c * m_bufferSize], m_bufferSize);
@@ -263,7 +272,7 @@ NNUGen::NNUGen():
                         m_inModel, m_outModel, m_inBuffer, m_outBuffer,
                         m_bufferSize, m_debug);
 
-  bool warmup = in0(UGenInputs::warmup) > 0;
+  int warmup = static_cast<int>(in0(UGenInputs::warmup));
   if (m_useThread)
     m_sharedData->m_compute_thread = new std::thread(model_perform_loop, m_sharedData, warmup);
   else
@@ -318,9 +327,9 @@ bool NNUGen::allocBuffers() {
   m_outBuffer = allocRingBuffer(mWorld, m_bufferSize, m_outDim);
   if (m_outBuffer == nullptr) return false;
   m_inModel = rtAlloc<float>(mWorld, m_bufferSize * m_inDim);
-  if(m_inModel == nullptr) return false;
+  if (m_inModel == nullptr) return false;
   m_outModel = rtAlloc<float>(mWorld, m_bufferSize * m_outDim);
-  if(m_outModel == nullptr) return false;
+  if (m_outModel == nullptr) return false;
   memset(m_inModel, 0, sizeof(float) * m_bufferSize * m_inDim);
   memset(m_outModel, 0, sizeof(float) * m_bufferSize * m_outDim);
   /* Print("m_inModel: %p\nm_outModel: %p\n", m_inModel, m_outModel); */
@@ -341,18 +350,20 @@ NN::~NN() {
   freeRingBuffer(mWorld, m_outBuffer);
   RTFree(mWorld, m_inModel);
   RTFree(mWorld, m_outModel);
-  if(m_compute_thread) { free(m_compute_thread); }
-  // thread destroyed by unique_ptr
+  if (m_compute_thread) { free(m_compute_thread); }
 }
 
-void NN::warmupModel() {
+void NN::warmupModel(int n_passes=1) {
+  /* Timer timer; */
   std::vector<float *> in_model, out_model;
   for (int c(0); c < m_inDim; ++c)
     in_model.push_back(&m_inModel[m_bufferSize * c]);
   for (int c(0); c < m_outDim; ++c)
     out_model.push_back(&m_outModel[m_bufferSize * c]);
 
-  m_model.perform(in_model, out_model, m_bufferSize, m_method->name, 1);
+  for(int i=0; i < n_passes; ++i)
+    m_model.perform(in_model, out_model, m_bufferSize, m_method->name, 1);
+  /* timer.print("warmup:"); */
 }
 
 } // namespace NN
