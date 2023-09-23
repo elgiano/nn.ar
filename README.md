@@ -89,6 +89,11 @@ Failing to do so can produce errors like:
 "libc10.dylib" is damaged and can’t be opened. You should move it to the Bin.
 ```
 
+**Note for windows users**: you need to copy some DLLs to the folder where you have `scsynth.exe`.
+1. Inside nn.ar folder you downloaded, there is a folder called `ignore`. Copy all the files inside this folder.
+2. Find the folder where you have `scsynth.exe`, it's usually something like: `C:\Program Files\SuperCollider3.x.x\` (where 3.x.x is the version you have installed).
+3. Paste all the .dll files you got in step 1 to the folder where `scsynth.exe` is.
+
 #### Building from source
 If you compile SuperCollider from source, or if you want to enable optimizations specific to your machine, you need to build this extension yourself.
 
