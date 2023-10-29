@@ -10,7 +10,7 @@ It has most features of nn_tilde:
 - loads models asynchronously on scsynth
 
 - tested so far only with [RAVE](https://github.com/acids-ircam/rave) (v1 and v2) and [msprior](https://github.com/caillonantoine/msprior) models
-- tested so far only on CPU, on linux
+- tested so far only on CPU, on linux, windows and mac.
 
 ```supercollider
 // Example:
@@ -100,8 +100,8 @@ If you compile SuperCollider from source, or if you want to enable optimizations
 Build requirements:
 
 - CMake >= 3.5
-- SuperCollider source code
 - [libtorch](https://pytorch.org/cppdocs/installing.html)
+- SuperCollider source code: **at least version 3.13** (see the note below if you need to build with an earlier sc version)
 
 Clone the project:
 
@@ -138,6 +138,7 @@ Finally, use CMake to build the project:
     cmake --build . --config Release
     cmake --build . --config Release --target install
 
+> **Note: for building with any supercollider version earlier than 3.13**: nn.ar needs a macro called `ClearUnitOnMemFailed`, which was defined in supercollider starting from version 3.13. If for any reason you need to build nn.ar with a previous version of supercollider, you have to copy [these two macros](https://github.com/supercollider/supercollider/blob/a80436ac2cb22b8cef62192c86be2951639c184f/include/plugin_interface/SC_Unit.h#L83-L92) and put them in `NNModel.cpp`.
 
 ### Developing
 
