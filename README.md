@@ -27,7 +27,7 @@ NN(\rave).methods;
 
 
 // 2. play
-{ NN(\rave, \forward).ar(1024, WhiteNoise.ar) }.play;
+{ NN(\rave, \forward).ar(WhiteNoise.ar, 1024) }.play;
 
 NN.load(\msprior, "~/rave/msprior.ts", action: _.describe);
 
@@ -35,12 +35,12 @@ NN.load(\msprior, "~/rave/msprior.ts", action: _.describe);
     var in, latent, modLatent, prior, resynth;
 
     in = SoundIn.ar();
-    latent = NN(\rave, \encode).ar(2048, in);
+    latent = NN(\rave, \encode).ar(in, 1024);
     modLatent = latent.collect { |l|
         l + LFNoise1.ar(MouseY.kr.exprange(0.1, 30)).range(-0.5, 0.5)
     };
-    prior = NN(\msprior, \forward).ar(2048, latent);
-    resynth = NN(\rave, \decode).ar(2048, prior.drop(-1);
+    prior = NN(\msprior, \forward).ar(latent, 1024);
+    resynth = NN(\rave, \decode).ar(prior.drop(-1), 2048);
 
     resynth
 }.play;
@@ -54,11 +54,11 @@ NN(\msprior).attributes;
     var in, latent, modLatent, prior, resynth;
 
     in = SoundIn.ar();
-    latent = NN(\rave, \encode).ar(2048, in);
+    latent = NN(\rave, \encode).ar(in, 2048);
     modLatent = latent.collect { |l|
         l + LFNoise1.ar(MouseY.kr.exprange(0.1, 30)).range(-0.5, 0.5)
     };
-    prior = NN(\msprior, \forward).ar(2048, latent
+    prior = NN(\msprior, \forward).ar(latent, 2048
         // attributes are set when their value changes
         attributes: [
             // here we use latch to limit the setting rate to once per second
@@ -66,7 +66,7 @@ NN(\msprior).attributes;
         ],
         debug: 1 // print attribute values when setting them
     );
-    resynth = NN(\rave, \decode).ar(2048, prior.drop(-1);
+    resynth = NN(\rave, \decode).ar(prior.drop(-1), 2048);
 
     resynth
 }.play;
