@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### v0.0.7
+- NNUGen: support flat list of multichannel inputs
+- nn_load: fixed a crash when loading again after load failed
+- nn_load: send /fail and /done, remove server syncs
+- updated macOS deQuarantine
+
 ### v0.0.6-alpha
 - Fixed a bug with multi-channel output, affecting \encode methods: unlacing was not needed
 
