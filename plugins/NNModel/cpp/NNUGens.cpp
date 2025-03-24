@@ -137,6 +137,16 @@ void model_perform_loop(NN *nn_instance, int warmup) {
 #ifdef NOVA_TT_PRIORITY_RT
     int priority = nova::thread_priority_interval_rt().first;
     nova::thread_set_priority_rt(priority);
+#elif defined(NOVA_TT_PRIORITY_PERIOD_COMPUTATION_CONSTRAINT)
+    double ns_per_block = nn_instance->m_nsPerBlock; 
+#    ifdef __APPLE__
+    success = thread_set_priority_rt(0, AudioConvertNanosToHostTime(ns_per_block - 5000),
+                                     AudioConvertNanosToHostTime(ns_per_block), true);
+#    else
+    success = thread_set_priority_rt(ns_per_block, ns_per_block - 2, ns_per_block - 1, false);
+#    endif
+    if (!success)
+        Print("Warning: NNUGen: couldn't setup rt prio");
 #endif
 
   model_perform_load(nn_instance, warmup);
@@ -216,7 +226,7 @@ NN::NN(
   const NNModelDesc* modelDesc, const NNModelMethod* modelMethod,
   float* inModel, float* outModel,  
   RingBuf* inRing, RingBuf* outRing,
-  int bufferSize, int debug, int batches): 
+  int bufferSize, int debug, int batches, int nsPerBlock): 
   mWorld(world),
   m_inModel(inModel), m_outModel(outModel),
   m_inBuffer(inRing), m_outBuffer(outRing),
@@ -225,7 +235,8 @@ NN::NN(
   m_batches(batches),
   m_compute_thread(nullptr),
   m_data_available_lock(0), m_result_available_lock(1),
-  m_should_stop_perform_thread(false), m_loaded(false)
+  m_should_stop_perform_thread(false), m_loaded(false),
+  m_nsPerBlock(nsPerBlock)
 {
   m_inDim = m_method->inDim;
   m_outDim = m_method->outDim;
@@ -291,9 +302,10 @@ NNUGen::NNUGen():
     ClearUnitOnMemFailed;
   }
   Debug("NNUGen: init sharedData\n");
+  int nsPerBlock = 1e9 / sampleRate() * bufferSize();
   m_sharedData = new(data) NN(mWorld, modelDesc, modelMethod, 
                         m_inModel, m_outModel, m_inBuffer, m_outBuffer,
-                        m_bufferSize, m_debug, m_batches);
+                        m_bufferSize, m_debug, m_batches, nsPerBlock);
 
   Debug("NNUGen: use thread %d\n", m_useThread);
   int warmup = static_cast<int>(in0(UGenInputs::warmup));

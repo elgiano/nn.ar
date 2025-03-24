@@ -65,7 +65,7 @@ class NN {
 public:
   NN(World* world, const NNModelDesc* modelDesc, const NNModelMethod* modelMethod,
      float* inModel, float* outModel,  RingBuf* m_inBuffer, RingBuf* m_outBuffer,
-     int bufferSize, int m_debug, int batches);
+     int bufferSize, int m_debug, int batches, int nsPerBlock);
 
   ~NN();
 
@@ -83,6 +83,7 @@ public:
   int m_inDim, m_outDim;
   int m_bufferSize, m_debug;
   int m_batches;
+  int m_nsPerBlock; // needed for RT prio on mac, see fn model_perform_loop
   std::vector<NNSetAttr> m_attributes;
   Backend m_model;
   bool m_should_stop_perform_thread;
