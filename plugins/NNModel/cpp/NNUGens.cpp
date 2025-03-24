@@ -7,6 +7,7 @@
 #include "SC_InterfaceTable.h"
 #include "SC_PlugIn.hpp"
 #include <chrono>
+#include "nova-tt/thread_priority.hpp"
 
 InterfaceTable* ft;
 
@@ -131,6 +132,13 @@ void model_perform(NN* nn_instance) {
 
 
 void model_perform_loop(NN *nn_instance, int warmup) {
+
+  // set rt thread priority
+#ifdef NOVA_TT_PRIORITY_RT
+    int priority = nova::thread_priority_interval_rt().first;
+    nova::thread_set_priority_rt(priority);
+#endif
+
   model_perform_load(nn_instance, warmup);
   std::vector<float *> in_model, out_model;
   int numInputs = nn_instance->m_inDim * nn_instance->m_batches;
