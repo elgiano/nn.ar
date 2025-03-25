@@ -10,14 +10,28 @@ extern NN::NNModelDescLib gModels;
 
 namespace NN::Cmd {
 
+// we need async commands in order not to block audio thread when loading/querying/unloading models
+// otherwise current sound processing crackles while doing it
+
 // defining async commands is complicated because of scsynth/nova implementations
 // the common interface requires to use DefinePlugInCmd and DoAsynchronousCommand from ftTable
 // - we need to pass osc args as void* inData
 // - if we want to SendReply, we need to pass replyAddress to the actual stage function
+// we also need to copy inData, otherwise it risks being freed before msg is processed (perhaps a bug?)
+// UnrollOSCPacket -> ProcessOSCPacket -> SendOscPacketMsgToEngine: adds to FIFO and frees data only if FIFO is full
+// MsgFifo calls Perform, then data can be freed at next fifo call
+// Perform_ToEngine_Msg transfers ownership (fifo can't free) only if it returns status == PacketScheduled
+// PerformOSCPacket returns PacketScheduled only for bundles with future timestamps
+// in our case it won't be scheduled, so data is freed at next fifo msg
+// this means that in Perform, i.e. our asyncCmd fn, we need to copy osc data to a new memory location, which we manage
+
 template<class Cmd>
 struct BaseAsyncCmd {
+private:
+  size_t oscDataSize;
+  const char* oscData;
+public:
   ReplyAddress* mReplyAddr;
-  sc_msg_iter* oscArgs;
 
   void SendFailure(const char* errString) {
     const char* cmdName = Cmd::cmdName();
@@ -34,19 +48,30 @@ struct BaseAsyncCmd {
     SendReply(mReplyAddr, packet.data(), packet.size());
   }
 
+  sc_msg_iter oscArgs() {
+    return sc_msg_iter(oscDataSize, oscData);
+  }
+
   BaseAsyncCmd() = delete;
   static Cmd* alloc(sc_msg_iter* args, ReplyAddress* replyAddr, World* world=nullptr) {
     size_t oscDataSize = args->remain();
     size_t dataSize = sizeof(Cmd) + oscDataSize;
     // Print("allocating data size: %d\n", dataSize);
 
+    // this is just malloc: we are always passing world=nullptr
     Cmd* cmdData = (Cmd*) (world ? RTAlloc(world, dataSize) : NRTAlloc(dataSize));
     if (cmdData == nullptr) {
       Print("%s: msg data alloc failed.\n", Cmd::cmdName());
       return nullptr;
     }
     cmdData->mReplyAddr = replyAddr;
-    cmdData->oscArgs = new (cmdData + 1) sc_msg_iter(oscDataSize, args->data + args->size - args->remain());
+    // cmdData->oscArgs = new (cmdData + 1) sc_msg_iter(oscDataSize, args->data + args->size - args->remain());
+    // shall we allocate new memory here?
+    // sc_msg_iter is just registering a reference to the pointer
+    // data comes from *args... is args ever freed? maybe before processing is done?
+    cmdData->oscDataSize = oscDataSize;
+    memcpy(cmdData + 1, args->data + args->size - args->remain(), oscDataSize);
+    cmdData->oscData = reinterpret_cast<const char*>(cmdData + 1);
 
     return cmdData;
   }
@@ -81,11 +106,10 @@ struct NNLoadCmd : BaseAsyncCmd<NNLoadCmd> {
 
   static bool stage2(World* world, void* inData) {
     auto cmdData = (NNLoadCmd*) inData;
-    auto args = cmdData->oscArgs;
-    const int id = args->geti(-1);
-    const char* path = args->gets();
-    const char* filename = args->gets("");
-
+    sc_msg_iter args = cmdData->oscArgs();
+    const int id = args.geti(-1);
+    const char* path = args.gets();
+    const char* filename = args.gets("");
     if (path == 0) {
       cmdData->SendFailure("needs a path to a .ts file");
       return false;
@@ -112,9 +136,9 @@ struct NNQueryCmd : BaseAsyncCmd<NNQueryCmd> {
 
   static bool stage2(World* world, void* inData) {
     auto cmdData = (NNQueryCmd*) inData;
-    auto args = cmdData->oscArgs;
-    const int modelIdx = args->geti(-1);
-    const char* outFile = args->gets("");
+    sc_msg_iter args = cmdData->oscArgs();
+    const int modelIdx = args.geti(-1);
+    const char* outFile = args.gets("");
 
     bool writeToFile = strlen(outFile) > 0;
     if (modelIdx < 0) {
@@ -136,8 +160,8 @@ public:
 
   static bool stage2(World* world, void* inData) {
     auto cmdData = (NNUnloadCmd*) inData;
-    auto args = cmdData->oscArgs;
-    int id = args->geti(-1);
+    sc_msg_iter args = cmdData->oscArgs();
+    int id = args.geti(-1);
     gModels.unload(id);
     return true;
   }
