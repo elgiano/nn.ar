@@ -1,9 +1,9 @@
 #include "NNModelCmd.hpp"
 #include "NNModel.hpp"
 #include "SC_InterfaceTable.h"
-#include "SC_PlugIn.hpp"
-#include "SC_ReplyImpl.hpp"
+#include "sc_msg_iter.h"
 #include "scsynthsend.h"
+#include "SC_ReplyAddrCopy.cpp"
 
 extern InterfaceTable* ft;
 extern NN::NNModelDescLib gModels;
