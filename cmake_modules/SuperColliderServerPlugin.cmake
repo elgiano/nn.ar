@@ -40,6 +40,7 @@ function(sc_add_server_plugin_properties target is_supernova)
     endif()
 
     target_include_directories(${target} PUBLIC
+        ${SC_PATH}/external_libraries/boost # for ReplyImpl
         ${SC_PATH}/include/plugin_interface
         ${SC_PATH}/include/common
         ${SC_PATH}/common
