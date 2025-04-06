@@ -1,7 +1,5 @@
 # CHANGELOG
 
-- set worker threads' RT priority via nova-tt
-
 ### v0.0.7
 - NNUGen: support flat list of multichannel inputs
 - nn_load: fixed a crash when loading again after load failed
