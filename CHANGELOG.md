@@ -1,6 +1,9 @@
 # CHANGELOG
 
-### v0.0.7
+### v0.0.8-alpha
+- add docs for /nn_version and mac/win install
+
+### v0.0.7-alpha
 - NNUGen: support flat list of multichannel inputs
 - nn_load: fixed a crash when loading again after load failed
 - updated macOS deQuarantine

@@ -24,6 +24,34 @@ link::https://github.com/acids-ircam/rave::. NN.ar is not limited to RAVE model,
 and can load and use any model prepared to work in nn_tilde. For more
 information please visit link::https://github.com/acids-ircam/nn_tilde::
 
+subsection::Installation notes (macOS)
+After having copied the teletype::nn.ar:: folder to your
+code::Platform.userExtensionDir::, you'll need to "de-quarantine" nn.ar's
+executables. This is due to macOS security policy (and also to the fact that I
+don't want to be part of their "Developer program").
+
+NN offers a command to do it automatically:
+code::
+NN.deQuarantine
+::
+Without de-quarantine, when
+scsynth is booted it will complain that some files are corrupted and prompt you
+to move them to the trash. Please don't trash them, run the above command, and
+reboot scsynth
+
+subsection::Installation notes (Windows)
+After having copied the teletype::nn.ar:: folder to your
+code::Platform.userExtensionDir::, you need to copy DLL files next to your
+teletype::scsynth.exe::. NN offers a convenience method for doing that:
+code::
+NN.copyDLLs
+::
+If you wish to uninstall nn.ar, before you do remove its folder from your
+Extension dir, you can run this command to delete DLLs as well
+code::
+NN.deleteDLLs
+::
+
 subsection::Loading models
 Models are loaded with a key to identify them and a path to a torchscript file:
 code::
@@ -273,6 +301,19 @@ Returns the key with which a model is stored in the registry.
 argument:: model
 an link::Classes/NNModel::
 returns:: a Symbol, or code::nil:: if model is not found in registry.
+
+method:: pluginVersion
+Asks the server to print the plugin version.
+argument:: server
+Defaults to code::s.default::
+
+discussion::
+example output
+teletype::
+nn.ar version v0.0.7-alpha::b7e6c07
+compiled for SuperCollider 3.13.1 with libtorch 2.3.0
+::
+
 subsection::OSC Messages
 
 method:: loadMsg
@@ -315,7 +356,8 @@ link::Classes/Platform#*resourceDir::
 section::macOS utility methods
 
 method::deQuarantine
-Opens a terminal and runs teletype::xattr -d -r com.apple.quarantine:: for NN Extension path
+Runs teletype::xattr -d -r com.apple.quarantine:: for all dylib and scx files in
+nn.ar's Extension folder
 
 
 examples::
