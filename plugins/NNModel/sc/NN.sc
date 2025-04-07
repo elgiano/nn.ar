@@ -82,4 +82,11 @@ NN {
 		^["/cmd", "/nn_query", modelIdx ? -1, outFile ? ""]
 	}
 
+	*pluginVersion { |server(Server.default)|
+		if (server.serverRunning.not) {
+			Error("server not running").throw
+		};
+		server.sendMsg("/cmd", "/nn_version")
+	}
+
 }

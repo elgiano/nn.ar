@@ -2,6 +2,7 @@
 #include "NNModel.hpp"
 #include "SC_InterfaceTable.h"
 #include "sc_msg_iter.h"
+#include <torch/version.h>
 
 extern InterfaceTable* ft;
 extern NN::NNModelDescLib gModels;
@@ -170,6 +171,11 @@ public:
   }
 };
 
+// /cmd /nn_version
+void nn_print_version(World*, void*, sc_msg_iter*, void*) {
+  Print("nn.ar version %s compiled for SuperCollider %s with libtorch %s\n",
+        NNAR_VERSION, SC_VERSION, TORCH_VERSION);
+}
 
 // // /cmd /nn_warmup int int
 // struct NNWarmupCmd : BaseAsyncCmd<NNUnloadCmd> {
@@ -207,6 +213,7 @@ void definePlugInCmds() {
   NNLoadCmd::define();
   NNUnloadCmd::define();
   NNQueryCmd::define();
+  DefinePlugInCmd("/nn_version", nn_print_version, nullptr);
   // NNWarmupCmd::define();
 }
 

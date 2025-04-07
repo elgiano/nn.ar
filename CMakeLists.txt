@@ -38,6 +38,12 @@ set(SC_PATH "${SC_PATH}" CACHE PATH
 include("${SC_PATH}/SCVersion.txt")
 message(STATUS "Building plugins for SuperCollider version: ${SC_VERSION}")
 
+# add compile-time versions for /nn_version
+include(nnArVersion)
+message(STATUS "nn.ar version: ${NNAR_VERSION}")
+add_definitions(-DNNAR_VERSION="${NNAR_VERSION}")
+add_definitions(-DSC_VERSION="${SC_VERSION}")
+
 # set project here to avoid SCVersion.txt clobbering our version info
 project(${project_name})
 sc_do_initial_compiler_config() # do after setting project so compiler ID is available
