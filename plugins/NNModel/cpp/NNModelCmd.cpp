@@ -104,16 +104,16 @@ struct NNLoadCmd : BaseAsyncCmd<NNLoadCmd> {
     // Print("nn_load: idx %d path %s\n", id, path);
     auto model = (id == -1) ? gModels.load(path) : gModels.load(id, path);
     if (model == nullptr) {
-      char errMsg[64 + strlen(path)]; sprintf(errMsg, "can't load model at %s", path);
-      cmdData->PrintFailure(errMsg);
+      std::string errMsg = "can't load model at " + std::string(path);
+      cmdData->PrintFailure(errMsg.c_str());
       return false;
     }
 
     if (strlen(filename) > 0) {
       bool success = model->dumpInfo(filename);
       if (!success) {
-        char errMsg[64 + strlen(filename)]; sprintf(errMsg, "can't write file '%s'", filename);
-        cmdData->PrintFailure(errMsg);
+        std::string errMsg = "can't write file " + std::string(path);
+        cmdData->PrintFailure(errMsg.c_str());
         return false;
       }
     }
@@ -189,9 +189,8 @@ void nn_print_version(World*, void*, sc_msg_iter*, void*) {
 //
 //    if (modelIdx < 0) {
 //       // Print("nn_warmup: invalid model index %d\n", modelIdx);
-//       const char errMsg[256];
-//       sprintf(errMsg, "invalid model index %d", id);
-//       cmdData->PrintFailure(errMsg);
+//       std::string errMsg = "invalid model index" + std::to_string(id);
+//       cmdData->PrintFailure(errMsg.c_str());
 //       return true;
 //    }
 //    const auto model = gModels.get(static_cast<unsigned short>(modelIdx), true);
