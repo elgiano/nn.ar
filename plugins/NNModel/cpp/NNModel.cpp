@@ -14,13 +14,13 @@ namespace NN {
 NNModelDesc::NNModelDesc(unsigned short id): m_idx(id) {}
 
 bool NNModelDesc::load(const char* path) {
-  Print("NNModelDesc: loading %s\n", path);
+  Print("(scsynth) NNModelDesc: loading %s\n", path);
   Backend backend;
   bool loaded = backend.load(path) == 0;
   if (loaded) {
-    Print("NNModelDesc: loaded %s\n", path);
+    Print("(scsynth) NNModelDesc: loaded %s\n", path);
   } else {
-    Print("ERROR: NNModelDesc backend failed to load model %s\n", path);
+    Print("ERROR: (scsynth) NNModelDesc backend failed to load model %s\n", path);
     return false;
   }
 
@@ -51,7 +51,7 @@ bool NNModelDesc::load(const char* path) {
       /* Print("attr %s %d\n", name.c_str(), attrType); */ 
       m_attributes.push_back({attrType, name});
     } catch (...) {
-      Print("NNModelDesc: couldn't read attribute '%s'\n", name.c_str());
+      Print("ERROR: (scsynth) NNModelDesc couldn't read attribute '%s'\n", name.c_str());
     } 
   }
 
@@ -63,7 +63,7 @@ const NNModelMethod* NNModelDesc::getMethod(unsigned short idx, bool warn) const
   try {
     return &m_methods.at(idx);
   } catch (const std::out_of_range&) {
-    if (warn) Print("NNModelDesc: method %d not found\n", idx);
+    if (warn) Print("WARNING: (scsynth) NNModelDesc: method %d not found\n", idx);
     return nullptr;
   }
 }
@@ -72,7 +72,7 @@ const NNModelAttribute* NNModelDesc::getAttribute(unsigned short idx, bool warn)
   try {
     return &m_attributes.at(idx);
   } catch (const std::out_of_range&) {
-    if (warn) Print("NNBackend: attribute %d not found\n", idx);
+    if (warn) Print("WARNING: (scsynth) NNBackend: attribute %d not found\n", idx);
     return nullptr;
   }
 }
@@ -101,7 +101,7 @@ NNModelDesc* NNModelDescLib::get(unsigned short id, bool warn) const {
     found = model != nullptr;
   } catch(...) {
     if (warn) {
-      Print("NNModelDescLib: id %d not found. Loaded models:%s\n", id, models.size() ? "" : " []");
+      Print("WARNING: (scsynth) NNModelDescLib: id %d not found. Loaded models:%s\n", id, models.size() ? "" : " []");
       for (auto kv: models) {
         Print("id: %d -> %s\n", kv.first, kv.second->getPath());
       }
@@ -111,7 +111,7 @@ NNModelDesc* NNModelDescLib::get(unsigned short id, bool warn) const {
 
   if (!found) return nullptr;
   if (!model->is_loaded()) {
-    if (warn) Print("NNModelDescLib: id %d not loaded yet\n", id);
+    if (warn) Print("WARNING: (scsynth) NNModelDescLib: id %d not loaded yet\n", id);
   }
   return model;
 }
@@ -150,7 +150,7 @@ NNModelDesc* NNModelDescLib::load(unsigned short id, const char* path) {
   auto model = get(id, false);
   if (model != nullptr) {
     if (strcmp(model->getPath(), path) == 0) {
-      Print("NNBackend: model %d already loaded %s\n", id, path);
+      Print("(scsynth) NNBackend: model %d already loaded %s\n", id, path);
       return model;
     } else {
       return model->load(path) ? model : nullptr;
@@ -181,7 +181,7 @@ bool NNModelDescLib::dumpAllInfo(const char* filename) const {
     std::ofstream file;
     file.open(filename);
     if (!file.is_open()) {
-      Print("ERROR: NNBackend couldn't open file %s\n", filename);
+      Print("ERROR: (scsynth) NNBackend couldn't open file %s\n", filename);
       return false;
     }
     streamAllInfo(file);
@@ -189,7 +189,7 @@ bool NNModelDescLib::dumpAllInfo(const char* filename) const {
     return true;
   }
   catch (...) {
-    Print("ERROR: NNBackend couldn't dump info to file %s\n", filename);
+    Print("ERROR: (scsynth) NNBackend couldn't dump info to file %s\n", filename);
     return false;
   }
 }
@@ -226,15 +226,16 @@ bool NNModelDesc::dumpInfo(const char* filename) const {
     std::ofstream file;
     file.open(filename);
     if (!file.is_open()) {
-      Print("ERROR: NNBackend couldn't open file %s\n", filename);
+      Print("ERROR: (scsynth) NNBackend couldn't open file %s\n", filename);
       return false;
     }
     streamInfo(file);
     file.close();
+    Print("(scsynth) NNBackend: written %s\n", filename);
     return true;
   }
   catch (...) {
-    Print("ERROR: NNBackend couldn't dump info to file %s\n", filename);
+    Print("ERROR: (scsynth) NNBackend couldn't dump info to file %s\n", filename);
     return false;
   }
 }

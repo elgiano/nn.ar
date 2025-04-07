@@ -1,6 +1,7 @@
 NN {
-	classvar rtModelStore, rtModelsInfo;
+	classvar rtModelStore, rtModelsInfo, <>tmpPath;
 	*initClass {
+		tmpPath = PathName.tmp;
 		rtModelStore = IdentityDictionary[];
 		// store model info by path
 		rtModelsInfo = IdentityDictionary[];
@@ -70,23 +71,6 @@ NN {
 
 	*dumpInfo { |outFile, server(Server.default)|
 		server.sendMsg(*this.dumpInfoMsg(-1, outFile))
-	}
-
-	*prIfCmd { |server, cmd, doneFn, failFn|
-
-		var failResponder, doneResponder;
-
-		failResponder = OSCFunc({|msg| 
-			doneResponder.free;
-			failFn.value(msg)
-		}, '/fail', server.addr, argTemplate:[cmd[1]]).oneShot;
-
-		doneResponder = OSCFunc({|msg| 
-			failResponder.free;
-			doneFn.value(msg)
-		}, '/done', server.addr, argTemplate:[cmd[1]]).oneShot;
-
-		server.sendMsg(*cmd);
 	}
 
 	*loadMsg { |id, path, infoFile|

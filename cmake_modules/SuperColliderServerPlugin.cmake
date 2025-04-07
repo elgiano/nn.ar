@@ -42,9 +42,7 @@ function(sc_add_server_plugin_properties target is_supernova)
     target_include_directories(${target} PUBLIC
         ${SC_PATH}/include/plugin_interface
         ${SC_PATH}/include/common
-        # for SendReply
         ${SC_PATH}/common # for scsynthsend.h:small_packet
-        ${SC_PATH}/external_libraries/boost # for ip:addr
     )
 
     # from CompilerConfig module

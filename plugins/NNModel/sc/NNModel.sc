@@ -26,6 +26,10 @@ NNModel {
 	*load { |path, id(-1), server(Server.default), action|
 		var loadMsg, infoFile, model;
 		path = path.standardizePath;
+		if (server.addr.hasBundle) {
+			// in bundles, file reading would executed before async command is done
+			Error("NN.load can't be used in Server.makeBundle functions").throw
+		};
 		if (server.serverRunning.not) {
 			Error("server not running").throw
 		};
@@ -33,19 +37,25 @@ NNModel {
 			Error("model file '%' not found".format(path)).throw
 		};
 
-		infoFile = infoFile ?? {PathName.tmp +/+ "nn-sc-" ++ UniqueID.next ++ ".yaml"};
+		infoFile = NN.tmpPath +/+ "nn-sc-" ++ UniqueID.next ++ ".yaml";
 		loadMsg = NN.loadMsg(id, path, infoFile);
 
 		model = super.newCopyArgs(server);
 
-		NN.prIfCmd(server, loadMsg) {
-			// server wrote an infoFile: read it
+		forkIfNeeded {
+			server.sync(bundles: [loadMsg]);
+
+			// server writes info file: read it
+			if (File.exists(infoFile).not) {
+				Error("NNModel.load failed for '%'. Please see the above log for errors from scsynth.".format(path)).throw;
+			};
+
 			protect { 
 				model.initFromFile(infoFile);
-				action.value(model)
+				action.(model)
 			} {
 				File.delete(infoFile);
-			}
+			};
 		};
 
 		^model;
