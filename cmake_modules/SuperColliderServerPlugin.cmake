@@ -43,6 +43,7 @@ function(sc_add_server_plugin_properties target is_supernova)
         ${SC_PATH}/include/plugin_interface
         ${SC_PATH}/include/common
         ${SC_PATH}/common # for scsynthsend.h:small_packet
+        ${SC_PATH}/external_libraries/nova-tt # for thread RT prio
     )
 
     # from CompilerConfig module

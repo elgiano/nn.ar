@@ -72,7 +72,6 @@ if (NOVA_SIMD)
 	include_directories(${SC_PATH}/external_libraries/nova-simd)
 endif()
 
-
 if (${SYSTEM_TORCH})
     find_package(Torch REQUIRED)
 else()
