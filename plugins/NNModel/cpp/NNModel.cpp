@@ -6,19 +6,34 @@
 #include <fstream>
 #include <ostream>
 #include "SC_InterfaceTable.h"
+#include "debug.hpp"
 
 extern InterfaceTable* ft;
 
 namespace NN {
 
+const char* NNAttributeTypeName(enum NNAttributeType value) {
+    switch(value) {
+        case typeBool:  return "bool";
+        case typeInt:   return "int";
+        case typeDouble:return "double";
+        case typeOther: return "typeOther";
+        default:        return "unknown";
+    }
+}
+
 NNModelDesc::NNModelDesc(unsigned short id): m_idx(id) {}
 
 bool NNModelDesc::load(const char* path) {
-  Print("(scsynth) NNModelDesc: loading %s\n", path);
+  Debug("(scsynth) NNModelDesc: loading %s\n", path);
   Backend backend;
-  bool loaded = backend.load(path) == 0;
+  bool loaded = false;
+  { // redirect libtorch stderr to see errors in SC post windows
+    StdErr2StdOut redirect;
+    loaded = backend.load(path) == 0;
+  }
   if (loaded) {
-    Print("(scsynth) NNModelDesc: loaded %s\n", path);
+    Debug("(scsynth) NNModelDesc: loaded %s\n", path);
   } else {
     Print("ERROR: (scsynth) NNModelDesc backend failed to load model %s\n", path);
     return false;
@@ -32,6 +47,7 @@ bool NNModelDesc::load(const char* path) {
   // cache methods
   if (m_methods.size() > 0) m_methods.clear();
   for (const std::string& name: backend.get_available_methods()) {
+    Debug("(scsynth) NNModelDesc: reading method %s\n", name.c_str());
     auto params = backend.get_method_params(name);
     // skip methods with no params
     if (params.size() == 0) continue;
@@ -41,6 +57,7 @@ bool NNModelDesc::load(const char* path) {
   // cache attributes
   if (m_attributes.size() > 0) m_attributes.clear();
   for (const std::string& name: backend.get_settable_attributes()) {
+    Debug("(scsynth) NNModelDesc: reading attribute %s", name.c_str());
     try {
       c10::IValue value = backend.get_attribute(name)[0];
       NNAttributeType attrType;
@@ -48,10 +65,10 @@ bool NNModelDesc::load(const char* path) {
       else if (value.isInt())  attrType = NNAttributeType::typeInt;
       else if (value.isDouble()) attrType = NNAttributeType::typeDouble;
       else attrType = NNAttributeType::typeOther;
-      /* Print("attr %s %d\n", name.c_str(), attrType); */ 
+      Debug(" (type: %s)\n", NNAttributeTypeName(attrType));
       m_attributes.push_back({attrType, name});
     } catch (...) {
-      Print("ERROR: (scsynth) NNModelDesc couldn't read attribute '%s'\n", name.c_str());
+      Print("\nERROR: (scsynth) NNModelDesc couldn't read attribute '%s'\n", name.c_str());
     } 
   }
 
@@ -150,7 +167,7 @@ NNModelDesc* NNModelDescLib::load(unsigned short id, const char* path) {
   auto model = get(id, false);
   if (model != nullptr) {
     if (strcmp(model->getPath(), path) == 0) {
-      Print("(scsynth) NNBackend: model %d already loaded %s\n", id, path);
+      Debug("(scsynth) NNBackend: model %d already loaded %s\n", id, path);
       return model;
     } else {
       return model->load(path) ? model : nullptr;
@@ -226,16 +243,16 @@ bool NNModelDesc::dumpInfo(const char* filename) const {
     std::ofstream file;
     file.open(filename);
     if (!file.is_open()) {
-      Print("ERROR: (scsynth) NNBackend couldn't open file %s\n", filename);
+      Print("ERROR: (scsynth) NNModelDesc couldn't open file %s\n", filename);
       return false;
     }
     streamInfo(file);
     file.close();
-    Print("(scsynth) NNBackend: written %s\n", filename);
+    Debug("(scsynth) NNModelDesc: wrote %s\n", filename);
     return true;
   }
   catch (...) {
-    Print("ERROR: (scsynth) NNBackend couldn't dump info to file %s\n", filename);
+    Print("ERROR: (scsynth) NNModelDesc couldn't dump info to file %s\n", filename);
     return false;
   }
 }

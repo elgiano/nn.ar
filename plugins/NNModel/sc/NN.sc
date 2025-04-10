@@ -1,7 +1,9 @@
 NN {
-	classvar rtModelStore, rtModelsInfo, <>tmpPath;
+	classvar <>tmpPath;
+	classvar rtModelStore, rtModelsInfo, verbose;
 	*initClass {
 		tmpPath = PathName.tmp;
+		verbose = false;
 		rtModelStore = IdentityDictionary[];
 		// store model info by path
 		rtModelsInfo = IdentityDictionary[];
@@ -23,7 +25,7 @@ NN {
 		var cache = if(this.isNRT, this.nrtModelsInfo, rtModelsInfo);
 		var path = info.path.asSymbol;
 		if (cache[path].notNil) {
-			"NN: overriding cached info for '%'".format(path).warn;
+			NN.debugWarn("NN: overriding cached info for '%'", path)
 		};
 		cache[path] = info;
 	}
@@ -57,6 +59,7 @@ NN {
 		} {
 			model = NNModel.load(path, id, server, action: { |m|
 				this.prPutModel(key, m);
+				"% loaded".format(m).postln;
 				// call action after adding to registry: in case action needs key
 				action.value(m);
 			});
@@ -89,4 +92,19 @@ NN {
 		server.sendMsg("/cmd", "/nn_version")
 	}
 
+	*debug { |verbose(true), server(Server.default)|
+		if (server.serverRunning.not) {
+			Error("server not running").throw
+		};
+		verbose = verbose;
+		// TODO: make debug persistent across server reboot
+		server.sendMsg("/cmd", "/nn_debug", verbose.asInteger);
+	}
+	*debugPrint { |msg ...args|
+		if (verbose) { msg.format(*args).postln }
+	}
+	*debugWarn { |msg ...args|
+		if (verbose) { msg.format(*args).warn }
+	}
+	*debugDo { |action| if (verbose, action) }
 }

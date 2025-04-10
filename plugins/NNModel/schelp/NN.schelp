@@ -314,6 +314,13 @@ nn.ar version v0.0.7-alpha::b7e6c07
 compiled for SuperCollider 3.13.1 with libtorch 2.3.0
 ::
 
+method:: debug
+Sends a message to the server to set the plugin's verbosity (true or false, defaults to false, i.e. quiet).
+argument:: verbose
+If teletype::true::, sets nn.ar to print more messages when loading models.
+argument:: server
+Defaults to code::s.default::
+
 subsection::OSC Messages
 
 method:: loadMsg

@@ -2,6 +2,20 @@
 
 [nn_tilde](https://github.com/acids-ircam/nn_tilde) adaptation for SuperCollider: load torchscripts for real-time audio processing.
 
+* [Features](#features)
+* [Installation](#installation)
+* [Usage](#usage)
+  + [Pre-trained models](#pre-trained-models)
+  + [Loading a model](#loading-a-model)
+  + [Selecting a method](#selecting-a-method)
+  + [Using attributes](#using-attributes)
+  + [Buffer configuration](#buffer-configuration)
+  + [Multichannel](#multichannel)
+* [Building from source](#building-from-source)
+* [Troubleshooting](#troubleshooting)
+* [Design](#design)
+  + [Latency considerations (RAVE)](#latency-considerations-rave)
+
 ## Features
 It has most features of nn_tilde:
 - interface for any available model method (e.g. forward, encode, decode)
@@ -9,18 +23,19 @@ It has most features of nn_tilde:
 - processes real-time at different buffer sizes, on separate threads
 - loads models asynchronously on scsynth
 
-- tested so far only with [RAVE](https://github.com/acids-ircam/rave) (v1 and v2) and [msprior](https://github.com/caillonantoine/msprior) models
+- tested so far only with [RAVE](https://github.com/acids-ircam/rave) (v1, v2, v3) and [msprior](https://github.com/caillonantoine/msprior) models
 - tested so far only on CPU, on linux, windows and mac.
 
 ## Installation
 ### Download a pre-built release
 
-- Download the latest release for your OS on the [Releases page](https://github.com/elgiano/nn.ar/releases).
+- Download the latest release for your OS on the [Releases page](https://github.com/elgiano/nn.ar/releases/latest).
 - Extract the archive and copy the `nn.ar` folder to your SuperCollider Extensions folder
 
 **Note for mac users**: binaries are not signed, so you need to run the following in SuperCollider to bypass macos security complaints:
 ```supercollider
-runInTerminal("xattr -d -r com.apple.quarantine" + shellQuote(Platform.userExtensionDir +/+ "nn.ar"))
+NN.deQuarantine;
+s.reboot;
 ```
 Failing to do so can produce errors like:
 ```
@@ -183,12 +198,12 @@ Build requirements:
 
 If you don't have a copy of supercollider's source code, you can get one by:
 
-    git clone https://github.com/supercollider/supercollider
+    git clone --recursive https://github.com/supercollider/supercollider
 
 ### Clone the project:
 
     git clone https://github.com/elgiano/nn.ar
-    cd nn-supercollider
+    cd nn.ar
 
 ### Download libtorch
 
@@ -224,7 +239,36 @@ Finally, use CMake to build and install the project:
 
 ### Note for sc-plugin development
 
-The usual `regenerate` command was disabled because `CmakeLists.txt` needed to be manually edited to include libtorch.
+The usual `regenerate` command was disabled because `CMakeLists.txt` needed to be manually edited to include libtorch.
+
+## Troubleshooting
+
+### /cmd failed
+
+> FAILURE IN SERVER /cmd failed
+
+In SuperCollider 3.13 and earlier, this error message means that a plugin command is not found. In our case, it probably means that the server plugins failed to load. Check the output of `s.reboot` for errors, in most cases it is either because executables need to be de-quarantined on mac (see [Installation](#installation)) or because some libraries (e.g. libtorch) failed to load.
+
+Later SuperCollider versions have a clearer error message:
+
+> FAILURE IN SERVER /cmd /nn_load not found
+
+### using NN.debug
+
+If something doesn't work, you can get more informations posted to your Post window by activating debug mode:  
+
+```supercollider
+// server needs to be booted already
+NN.debug(true);
+```
+
+This will print messages for a lot of backend operations when you run `NN.load()`.
+
+For troubleshooting UGens, i.e. NN(...).ar, there is a debug option there too
+
+```supercollider
+{ NN(\myModel, \forward).ar(SoundIn.ar, debug: 2) }.play
+```
 
 ## Design
 

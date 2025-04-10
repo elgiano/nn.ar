@@ -11,15 +11,12 @@
 
 InterfaceTable* ft;
 
+#define DEBUG(...) if (m_debug >= Debug::all) Print(__VA_ARGS__)
+
 // global model store, by numeric id
 NN::NNModelDescLib gModels;
-
-/* #define DEBUG */
-#ifdef DEBUG
-#define Debug(...) Print(__VA_ARGS__)
-#else
-#define Debug(...)
-#endif
+// global debug level
+namespace NN { bool gDebug = false; }
 
 template<class T>
 T* rtAlloc(World* world, size_t size=1) {
@@ -91,21 +88,19 @@ static void model_perform_attributes(NN* nn_instance) {
 
 void model_perform_load(NN* nn, int warmup) {
   auto path = nn->m_modelDesc->getPath();
-  if (nn->m_debug >= Debug::all)
-    Print("NNUGen: loading model %s\n", path);
+  auto m_debug = nn->m_debug;
+  DEBUG("NNUGen: loading model %s\n", path);
   int err = nn->m_model.load(path);
   if (err) {
     Print("NNUGen: ERROR loading model %s\n", path);
     return;
   }
   if (warmup > 0) {
-    if (nn->m_debug >= Debug::all)
-      Print("NNUGen: warming up model\n", path);
+    DEBUG("NNUGen: warming up model\n", path);
     nn->warmupModel(warmup);
   }
   nn->m_loaded = true;
-  if (nn->m_debug >= Debug::all)
-    Print("NNUGen: loaded %s\n", path);
+  DEBUG("NNUGen: loaded %s\n", path);
 }
 
 void model_perform_cleanup(NN* nn_instance) {
@@ -133,7 +128,8 @@ void model_perform(NN* nn_instance) {
 inline void set_thread_rt_prio(const NN* nn_instance) {
 #ifdef NOVA_TT_PRIORITY_RT
     int priority = nova::thread_priority_interval_rt().first;
-    Debug("NNUGen: setting thread rt prio (%d)\n", prio);
+    auto m_debug = nn_instance->m_debug;
+    DEBUG("NNUGen: setting thread rt prio (%d)\n", priority);
     nova::thread_set_priority_rt(priority);
 #elif defined(NOVA_TT_PRIORITY_PERIOD_COMPUTATION_CONSTRAINT)
     double ns_per_block = nn_instance->m_nsPerBlock; 
@@ -144,16 +140,14 @@ inline void set_thread_rt_prio(const NN* nn_instance) {
     double ns_to_host = static_cast<double>(timebase.denom) / timebase.numer;
     int computation = ns_to_host * (ns_per_block - 5000);
     int constraint = ns_to_host * ns_per_block;
-    Debug("NNUGen: setting thread rt prio (ns_to_host: %f; computation: %d, constraint: %d)\n",
+    DEBUG("NNUGen: setting thread rt prio (ns_to_host: %f; computation: %d, constraint: %d)\n",
           ns_to_host, computation, constraint);
     success = nova::thread_set_priority_rt(0, computation, constraint, true);
 #    else
     success = nova::thread_set_priority_rt(ns_per_block, ns_per_block - 2, ns_per_block - 1, false);
 #    endif
     if (!success)
-        Print("Warning: NNUGen: couldn't setup rt prio\n");
-    else
-        Print("NNUGen: set realtime prio with thread_set_priority_rt\n");
+        Print("WARNING: NNUGen: couldn't set thread rt prio\n");
 #endif
 }
 
@@ -182,7 +176,8 @@ void model_perform_loop(NN *nn_instance, int warmup) {
     }
   }
   model_perform_cleanup(nn_instance);
-  Debug("NN: thread exit\n");
+  auto m_debug = nn_instance->m_debug;
+  DEBUG("NN: thread exit\n");
 }
 
 void NNUGen::next(int nSamples) {
@@ -257,6 +252,7 @@ NN::NN(
 NNUGen::NNUGen(): 
   m_inBuffer(nullptr), m_outBuffer(nullptr)
 {
+  m_debug = static_cast<int>(in0(UGenInputs::debug));
   auto modelIdx = static_cast<unsigned short>(in0(UGenInputs::modelIdx));
   const NNModelDesc* modelDesc = gModels.get(modelIdx);
   const NNModelMethod* modelMethod = nullptr;
@@ -271,7 +267,7 @@ NNUGen::NNUGen():
   m_batches = sc_max(1, static_cast<int>(in0(UGenInputs::n_batches)));
 
   m_bufferSize = in0(UGenInputs::bufSize);
-  Debug("NNUGen: bufSize %d\n", m_bufferSize); 
+  DEBUG("NNUGen: bufSize %d\n", m_bufferSize); 
 
   // don't use external thread on NRT
   m_useThread = mWorld->mRealTime;
@@ -305,43 +301,40 @@ NNUGen::NNUGen():
     ClearUnitOnMemFailed;
   }
 
-  m_debug = static_cast<int>(in0(UGenInputs::debug));
-
   void* data = RTAlloc(mWorld, sizeof(NN));
   if (!data) {
     freeBuffers();
     ClearUnitOnMemFailed;
   }
-  Debug("NNUGen: init sharedData\n");
+  DEBUG("NNUGen: init sharedData\n");
   int nsPerBlock = 1e9 * fullSampleDur() * fullBufferSize();
   m_sharedData = new(data) NN(mWorld, modelDesc, modelMethod, 
                         m_inModel, m_outModel, m_inBuffer, m_outBuffer,
                         m_bufferSize, m_debug, m_batches, nsPerBlock);
 
-  Debug("NNUGen: use thread %d\n", m_useThread);
+  DEBUG("NNUGen: use thread %d\n", m_useThread);
   int warmup = static_cast<int>(in0(UGenInputs::warmup));
   if (m_useThread)
     m_sharedData->m_compute_thread = new std::thread(model_perform_loop, m_sharedData, warmup);
   else
     model_perform_load(m_sharedData, warmup);
 
-  Debug("NNUGen: setupAttributes\n", m_useThread);
+  DEBUG("NNUGen: setupAttributes\n", m_useThread);
   setupAttributes();
 
   mCalcFunc = make_calc_function<NNUGen, &NNUGen::next>();
-  if (m_debug >= Debug::all)
-  Debug("NNUGen: Ctor done\n");
+  DEBUG("NNUGen: Ctor done\n");
 }
 
 NNUGen::~NNUGen() {
-  Debug("NN: Dtor\n");
+  DEBUG("NN: Dtor\n");
   if (m_sharedData->m_compute_thread) {
     // don't wait for join, it would stall the dsp chain
     // thread frees resources when stopped
     m_sharedData->m_should_stop_perform_thread = true;
     /* m_compute_thread->join(); */
   } else {
-    Debug("NN: freeing manually\n");
+    DEBUG("NN: freeing manually\n");
     m_sharedData->~NN(); // this frees resources
     RTFree(mWorld, m_sharedData);
   }

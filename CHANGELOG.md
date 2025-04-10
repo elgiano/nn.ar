@@ -1,6 +1,7 @@
 # CHANGELOG
 
 ### v0.0.8-alpha
+- add NN.debug and /nn_debug for more verbose messages
 - add docs for /nn_version and mac/win install
 
 ### v0.0.7-alpha

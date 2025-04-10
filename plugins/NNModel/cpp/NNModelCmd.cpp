@@ -3,6 +3,7 @@
 #include "SC_InterfaceTable.h"
 #include "sc_msg_iter.h"
 #include <torch/version.h>
+#include "debug.hpp"
 
 extern InterfaceTable* ft;
 extern NN::NNModelDescLib gModels;
@@ -101,13 +102,18 @@ struct NNLoadCmd : BaseAsyncCmd<NNLoadCmd> {
       return false;
     }
 
-    // Print("nn_load: idx %d path %s\n", id, path);
+    Print("(scsynth) nn_load: loading '%s'\n", path);
     auto model = (id == -1) ? gModels.load(path) : gModels.load(id, path);
     if (model == nullptr) {
       std::string errMsg = "can't load model at " + std::string(path);
       cmdData->PrintFailure(errMsg.c_str());
       return false;
     }
+
+    if (gDebug) {
+      Print("(scsynth) nn_load: model info:\n");
+      model->printInfo();
+    };
 
     if (strlen(filename) > 0) {
       bool success = model->dumpInfo(filename);
@@ -177,6 +183,12 @@ void nn_print_version(World*, void*, sc_msg_iter*, void*) {
         NNAR_VERSION, SC_VERSION, TORCH_VERSION);
 }
 
+// /cmd /nn_debug
+void nn_debug(World*, void*, sc_msg_iter* args, void*) {
+  gDebug = args->geti(0) > 0;
+  Print("(scsynth) setting debug level to '%s'\n", gDebug ? "verbose" : "quiet");
+}
+
 // // /cmd /nn_warmup int int
 // struct NNWarmupCmd : BaseAsyncCmd<NNUnloadCmd> {
 // public:
@@ -213,6 +225,7 @@ void definePlugInCmds() {
   NNUnloadCmd::define();
   NNQueryCmd::define();
   DefinePlugInCmd("/nn_version", nn_print_version, nullptr);
+  DefinePlugInCmd("/nn_debug", nn_debug, nullptr);
   // NNWarmupCmd::define();
 }
 

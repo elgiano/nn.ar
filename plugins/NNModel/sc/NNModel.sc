@@ -51,6 +51,7 @@ NNModel {
 			};
 
 			protect { 
+				NN.debugPrint("NNModel: reading '%'", infoFile);
 				model.initFromFile(infoFile);
 				action.(model)
 			} {
@@ -74,6 +75,7 @@ NNModel {
 
 	initFromFile { |infoFile|
 		var info = NNModelInfo.fromFile(infoFile);
+		NN.debugDo { info.describe };
 		this.initFromInfo(info);
 		NN.prCacheInfo(info);
 	}

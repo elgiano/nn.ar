@@ -23,6 +23,9 @@ struct NNModelAttribute {
   std::string name;
 };
 
+// only used for verbose debugging
+const char* NNAttributeTypeName(NNAttributeType);
+
 // read and store model information
 // needed mostly to avoid passing strings to UGens
 class NNModelDesc {
