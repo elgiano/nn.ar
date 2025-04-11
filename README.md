@@ -103,11 +103,11 @@ NN(\ravePerc).methods;
 
 // 3. manual latent navigation using only \decode
 // here we assume ravePerc has 8 latent dimensions
-Ndef(\rave) { NN(\ravePerc, \decode).ar(\latents.kr(0!8)) }.play;
+Ndef(\rave) { NN(\ravePerc, \decode).ar(\latents.ar(0!8)) }.play;
 // set all latents
 Ndef(\rave).set(\latents, [0.75, 0.1, 1.5, 0.2, 0.3, 0.7, 1.2, 0.33])
 // set any latent programmatically
-Ndef(\rave).set(\latents, 2, 0.5);
+Ndef(\rave).seti(\latents, 2, 0.5);
 // simple GUI with sliders:
 (
 var win = View(bounds:800@200);
@@ -120,6 +120,22 @@ win.layout_(HLayout(*sliders)).front
 // using the NodeProxyGui2 Quark, you automatically get the sliders you need:
 // find it at https://github.com/madskjeldgaard/nodeproxygui2
 Ndef(\rave).gui2
+
+(
+// maybe a more interesting multi-XY interface
+var ev = EnvelopeView(bounds:500@500)
+.drawLines_(false).drawRects_(true).style_(\dots)
+.thumbSize_(48).background_(Color.clear)
+.gridOn_(true).grid_(0.1@0.1).gridColor_(Color.grey(0.2))
+.value_(Ndef(\rave).get(\latents).clump(2).flop)
+.action_{|sl|
+	Ndef(\rave).set(\latents, sl.value.flop.flatten)
+}.front;
+ev.value.shape[1].do {|v, i|
+	ev.setFillColor(i, Color.rand);
+	ev.setString(i, "z%,z%".format(i*2+1, i*2+2));
+}
+)
 ```
 
 ### Using attributes
