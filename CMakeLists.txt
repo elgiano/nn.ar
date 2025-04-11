@@ -72,52 +72,38 @@ if (NOVA_SIMD)
 	include_directories(${SC_PATH}/external_libraries/nova-simd)
 endif()
 
-if (${SYSTEM_TORCH})
-    find_package(Torch REQUIRED)
-else()
-# find torch
-    message(STATUS "Torch install path: ${TORCH_PATH}")
-    if ("${TORCH_PATH}" STREQUAL "")
-	message(FATAL_ERROR "TORCH_PATH required but not provided")
-    endif()
-    if (NOT EXISTS "${TORCH_PATH}")
-	message(FATAL_ERROR "TORCH_PATH '${TORCH_PATH}' does not exist")
-    endif()
+# static torch
+include(ExternalProject)
+set(LIBTORCH_STATIC_INSTALL_DIR "${CMAKE_BINARY_DIR}/libtorch_static-install")
 
-    # on some systems it still finds systemwide torch if we don't set prefix_path
-    set(CMAKE_PREFIX_PATH ${TORCH_PATH})
-    find_package(Torch REQUIRED PATHS "${TORCH_PATH}" NO_DEFAULT_PATH)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+ExternalProject_Add(
+    libtorch_static
+    SOURCE_DIR "${CMAKE_SOURCE_DIR}/third_party/pytorch"
+    CMAKE_ARGS
+        -DCMAKE_INSTALL_PREFIX=${LIBTORCH_STATIC_INSTALL_DIR}
+        -DBUILD_SHARED_LIBS=OFF
+        -DCMAKE_BUILD_TYPE=Release
+        -DBUILD_PYTHON=OFF
+        -DUSE_CUDA=OFF
+        -DUSE_NCCL=OFF
+	-DUSE_SYSTEM_EIGEN=OFF
+        -DUSE_MKLDNN=OFF # maybe turn on for x86_64?
+        -DUSE_OPENMP=ON
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5 # for cmake 4
+        -DCMAKE_CXX_FLAGS=-Wno-maybe-uninitialized # https://github.com/pytorch/pytorch/issues/129358
+    BUILD_BYPRODUCTS 
+        "${LIBTORCH_STATIC_INSTALL_DIR}/lib/libtorch.a"
+        "${LIBTORCH_STATIC_INSTALL_DIR}/lib/libc10.a"
+    INSTALL_DIR ${LIBTORCH_STATIC_INSTALL_DIR}
+)
 
-# copy shared libs
-    set(TORCH_SO)
-    if (LINUX)
-	file(GLOB TORCH_SO
-	    "${TORCH_INSTALL_PREFIX}/lib/libtorch.so"
-	    "${TORCH_INSTALL_PREFIX}/lib/libtorch_cpu.so"
-	    "${TORCH_INSTALL_PREFIX}/lib/libc10.so"
-	    "${TORCH_INSTALL_PREFIX}/lib/libgomp*"
-	)
-	set(CMAKE_INSTALL_RPATH "$ORIGIN/ignore")
-    elseif (APPLE)
-	file(GLOB TORCH_SO
-	    "${TORCH_INSTALL_PREFIX}/lib/libtorch.dylib"
-	    "${TORCH_INSTALL_PREFIX}/lib/libtorch_cpu.dylib"
-	    "${TORCH_INSTALL_PREFIX}/lib/libc10.dylib"
-	    "${TORCH_INSTALL_PREFIX}/lib/libomp*"
-	)
-	set(CMAKE_INSTALL_RPATH "@loader_path/ignore")
-    elseif (MSVC)
-	file(GLOB TORCH_SO "${TORCH_INSTALL_PREFIX}/lib/*.dll")
-    endif()
-    install(FILES ${TORCH_SO} DESTINATION "${dest_dir}/ignore")
-endif()
+set(TORCH_LIBRARIES 
+    ${LIBTORCH_STATIC_INSTALL_DIR}/lib/libtorch.a
+    ${LIBTORCH_STATIC_INSTALL_DIR}/lib/libc10.a
+)
 
-message(STATUS "Torch libs: ${TORCH_LIBRARIES}")
-message(STATUS "Torch shared libraries to be copied:")
-foreach(so ${TORCH_SO})
-    message(STATUS "> ${so}")
-endforeach()
+include_directories(${LIBTORCH_STATIC_INSTALL_DIR}/include/)
+include_directories(${LIBTORCH_STATIC_INSTALL_DIR}/include/torch/csrc/api/include)
 
 ####################################################################################################
 # Begin target NNUGens
@@ -148,6 +134,7 @@ sc_add_server_plugin(
     "${NNUGens_cpp_files}"
     "${NNUGens_sc_files}"
     "${NNUGens_schelp_files}"
+    libtorch_static
     "${TORCH_LIBRARIES}"
 )
 

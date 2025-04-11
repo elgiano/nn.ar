@@ -1,0 +1,5 @@
+[submodule "third_party/pytorch"]
+	path = third_party/pytorch
+	url = https://github.com/pytorch/pytorch
+  branch = v2.4.1
+  shallow = true
