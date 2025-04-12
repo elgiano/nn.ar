@@ -70,7 +70,8 @@ bool NNModelDesc::load(const char* path) {
       Debug(" (type: %s)\n", NNAttributeTypeName(attrType));
       m_attributes.push_back({attrType, name});
     } catch (...) {
-      Print("\nERROR: (scsynth) NNModelDesc couldn't read attribute '%s'\n", name.c_str());
+      // get_attribute throws only when there isn't a get_ method associa
+      Debug("\nWARNING: (scsynth) NNModelDesc: attribute '%s' not usable (getter not found)\n", name.c_str());
     } 
   }
 
