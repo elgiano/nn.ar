@@ -1,9 +1,9 @@
 NN {
 	classvar <>tmpPath;
-	classvar rtModelStore, rtModelsInfo, verbose;
+	classvar rtModelStore, rtModelsInfo, isVerbose;
 	*initClass {
 		tmpPath = PathName.tmp;
-		verbose = false;
+		isVerbose = false;
 		rtModelStore = IdentityDictionary[];
 		// store model info by path
 		rtModelsInfo = IdentityDictionary[];
@@ -96,15 +96,15 @@ NN {
 		if (server.serverRunning.not) {
 			Error("server not running").throw
 		};
-		verbose = verbose;
+		isVerbose = verbose;
 		// TODO: make debug persistent across server reboot
 		server.sendMsg("/cmd", "/nn_debug", verbose.asInteger);
 	}
 	*debugPrint { |msg ...args|
-		if (verbose) { msg.format(*args).postln }
+		if (isVerbose) { msg.format(*args).postln }
 	}
 	*debugWarn { |msg ...args|
-		if (verbose) { msg.format(*args).warn }
+		if (isVerbose) { msg.format(*args).warn }
 	}
-	*debugDo { |action| if (verbose, action) }
+	*debugDo { |action| if (isVerbose, action) }
 }
