@@ -1,8 +1,10 @@
 # CHANGELOG
 
 ### v0.0.8-alpha
+- worker thread set RT priority (thanks victor.shepardson)
 - add NN.debug and /nn_debug for more verbose messages
 - add docs for /nn_version and mac/win install
+- add sampleRate to model descriptions
 
 ### v0.0.7-alpha
 - NNUGen: support flat list of multichannel inputs
