@@ -91,7 +91,6 @@ int Backend::load(std::string path) {
     m_model = model;
     m_loaded = 1;
     model_lock.unlock();
-
     m_available_methods = get_available_methods();
     m_path = path;
     return 0;
@@ -104,6 +103,16 @@ int Backend::load(std::string path) {
 int Backend::reload() {
   auto return_code = load(m_path);
   return return_code;
+}
+
+int Backend::get_sample_rate() {
+    try {
+      return m_model.attr("sr").toInt();
+    } catch (const std::exception& e) {
+      std::cerr << "TorchBackend: could not get model sample rate as attribute: "
+                << e.what() << std::endl;
+      return 0;
+    }
 }
 
 bool Backend::has_method(std::string method_name) {

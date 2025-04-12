@@ -44,6 +44,8 @@ bool NNModelDesc::load(const char* path) {
 
   m_higherRatio = backend.get_higher_ratio();
 
+  m_sampleRate = backend.get_sample_rate();
+
   // cache methods
   if (m_methods.size() > 0) m_methods.clear();
   for (const std::string& name: backend.get_available_methods()) {
@@ -217,6 +219,7 @@ void NNModelDesc::streamInfo(std::ostream& stream) const {
   stream << "- idx: " << m_idx
     << "\n  modelPath: " << m_path.c_str()
     << "\n  minBufferSize: " << m_higherRatio
+    << "\n  sampleRate: " << m_sampleRate
     << "\n  methods:";
   for (const auto& m: m_methods) {
     stream << "\n    - name: " << m.name

@@ -117,7 +117,7 @@ NNModel {
 }
 
 NNModelInfo {
-	var <idx, <path, <minBufferSize, <methods, <attributes;
+	var <idx, <path, <minBufferSize, <sampleRate, <methods, <attributes;
 	*new {}
 
 	*fromFile { |infoFile|
@@ -135,6 +135,7 @@ NNModelInfo {
 		idx = yaml["idx"].asInteger;
 		path = yaml["modelPath"];
 		minBufferSize = yaml["minBufferSize"].asInteger;
+		sampleRate = yaml["sampleRate"].asInteger;
 		methods = yaml["methods"].collect { |m, n|
 			var name = m["name"].asSymbol;
 			var inDim = m["inDim"].asInteger;
@@ -146,6 +147,7 @@ NNModelInfo {
 
 	describe {
 		"path: %".format(this.path).postln;
+		"sampleRate: %".format(this.sampleRate).postln;
 		"minBufferSize: %".format(this.minBufferSize).postln;
 		this.methods.do { |m|
 			"- method %: % ins, % outs".format(m.name, m.numInputs, m.numOutputs).postln;

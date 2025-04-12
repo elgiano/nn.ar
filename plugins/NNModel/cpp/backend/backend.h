@@ -36,4 +36,5 @@ public:
   bool is_loaded();
   torch::jit::script::Module get_model() { return m_model; }
   void use_gpu(bool value);
+  int get_sample_rate();
 };

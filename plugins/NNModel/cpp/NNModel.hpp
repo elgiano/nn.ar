@@ -52,6 +52,7 @@ private:
   std::vector<NNModelMethod> m_methods;
   std::vector<NNModelAttribute> m_attributes;
   int m_higherRatio;
+  int m_sampleRate;
   unsigned short m_idx;
   bool m_loaded = false;
   std::string m_path;
