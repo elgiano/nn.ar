@@ -250,7 +250,7 @@ NN::NN(
 
 
 NNUGen::NNUGen(): 
-  m_inBuffer(nullptr), m_outBuffer(nullptr)
+  m_inBuffer(nullptr), m_outBuffer(nullptr), m_sharedData(nullptr)
 {
   m_debug = static_cast<int>(in0(UGenInputs::debug));
   auto modelIdx = static_cast<unsigned short>(in0(UGenInputs::modelIdx));
@@ -328,14 +328,14 @@ NNUGen::NNUGen():
 
 NNUGen::~NNUGen() {
   DEBUG("NN: Dtor\n");
-  if (m_sharedData->m_compute_thread) {
+  if (m_sharedData && m_sharedData->m_compute_thread) {
     // don't wait for join, it would stall the dsp chain
     // thread frees resources when stopped
     m_sharedData->m_should_stop_perform_thread = true;
     /* m_compute_thread->join(); */
   } else {
     DEBUG("NN: freeing manually\n");
-    m_sharedData->~NN(); // this frees resources
+    if (m_sharedData) m_sharedData->~NN(); // this frees resources
     RTFree(mWorld, m_sharedData);
   }
 }

@@ -5,6 +5,7 @@
 - add NN.debug and /nn_debug for more verbose messages
 - add docs for /nn_version and mac/win install
 - add sampleRate to model descriptions
+- fix server crash in Dtor when model not found
 
 ### v0.0.7-alpha
 - NNUGen: support flat list of multichannel inputs
