@@ -3,6 +3,7 @@
 ### v0.0.8-alpha
 - worker thread set RT priority (thanks victor.shepardson)
 - add NN.debug and /nn_debug for more verbose messages
+- NNUGen: allow kr inputs
 - add docs for /nn_version and mac/win install
 - add sampleRate to model descriptions
 - fix server crash in Dtor when model not found

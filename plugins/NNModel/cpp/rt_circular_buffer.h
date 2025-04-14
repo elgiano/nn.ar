@@ -4,14 +4,18 @@
 * so that it can be allocated via RTAlloc on the real-time memory
 */
 #pragma once
-#include "SC_World.h"
 #include <cstring>
-#include <memory>
-#include <iostream>
 #include "SC_InlineBinaryOp.h"
 
 namespace NN {
 template <class in_type, class out_type> class RingBufCtrl {
+protected:
+  out_type* _buffer;
+  size_t _max_size;
+
+  int _head = 0;
+  int _tail = 0;
+  bool _full = false;
 public:
   RingBufCtrl(out_type* buf, size_t size): _buffer(buf), _max_size(size) {
   };
@@ -24,18 +28,24 @@ public:
   size_t readable() const { 
     return empty() ? 0 : _head > _tail ? _head - _tail : _max_size - (_tail - _head); 
   }
+  size_t writable() const {
+    return _max_size - readable();
+  }
+  void reset() {;
+    _head = _tail;
+    _full = false;
+  }
+
+  void putRepeat(in_type val, int N) {
+    put_impl(N, [&](int chunkSize, size_t written) {
+      std::fill(&_buffer[_head], &_buffer[_head] + chunkSize, val);
+    });
+  }
 
   void put(const in_type *input_array, int N) {
-    size_t written = 0;
-
-    while (written < N) {
-      int chunkSize = sc_min(N - written, _max_size - _head);
-      memcpy(&_buffer[_head], &input_array[written], chunkSize * sizeof(out_type));
-      _head = sc_mod(_head + chunkSize, _max_size);
-      written += chunkSize;
-    }
-
-    if (_head == _tail) _full = true;
+    put_impl(N, [&](int chunkSize, size_t written) {
+      memcpy(&_buffer[_head], &input_array[written], chunkSize * sizeof(in_type));
+    });
   }
 
   void get(out_type *output_array, int N) {
@@ -48,22 +58,31 @@ public:
       _tail = sc_mod(_tail + chunkSize, _max_size);
       read += chunkSize;
     }
-    if (bytesToRead < N)
-      memset(&output_array[bytesToRead], 0, sizeof(out_type) * (N-bytesToRead));
+    if (read < N)
+      memset(&output_array[read], 0, sizeof(out_type) * (N-read));
     _full = false;
   };
 
-  void reset() {;
-    _head = _tail;
-    _full = false;
+private:
+  // template for ar/kr put functions, writeChunk is given as lambda
+  template <typename WriteFunc>
+  void put_impl(int N, WriteFunc writeChunk) {
+    size_t written = 0;
+
+    // when overwriting old data, move _tail accordingly
+    // otherwise readable() gets shorter
+    if (N > writable())
+      _tail = sc_mod(_tail + writable() - N, (int)_max_size);
+
+    while (written < N) {
+      int chunkSize = sc_min(N - written, _max_size - _head);
+      writeChunk(chunkSize, written);
+      _head = sc_mod(_head + chunkSize, _max_size);
+      written += chunkSize;
+    }
+
+    // this works because N is always = blockSize, for both put and get
+    if (_head == _tail) _full = true;
   }
-
-protected:
-  out_type* _buffer;
-  size_t _max_size;
-
-  int _head = 0;
-  int _tail = 0;
-  bool _full = false;
 };
 }

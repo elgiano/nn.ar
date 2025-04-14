@@ -5,7 +5,6 @@
 #include "backend/backend.h"
 #include "SC_PlugIn.hpp"
 #include "rt_circular_buffer.h"
-#include <chrono>
 #include <semaphore>
 #include <string>
 #include <thread>
@@ -20,6 +19,7 @@ using RingBuf = RingBufCtrl<float, float>;
 
 enum Debug { none=0, attributes=1, all=2 };
 
+// #include <chrono>
 /* class Timer { */
 /*   std::chrono::high_resolution_clock::time_point start; */
 /* public: */ 

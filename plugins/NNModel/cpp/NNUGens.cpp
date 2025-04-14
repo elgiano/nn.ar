@@ -1,9 +1,9 @@
 // NNUGens.cpp
+//
 #include "NNModel.hpp"
 #include "NNUGens.hpp"
 #include "NNModelCmd.hpp"
 #include "SC_Unit.h"
-#include "rt_circular_buffer.h"
 #include "SC_InterfaceTable.h"
 #include "SC_PlugIn.hpp"
 #include "nova-tt/thread_priority.hpp"
@@ -193,12 +193,19 @@ void NNUGen::next(int nSamples) {
   int numInputs = m_inDim * m_batches;
   int numOutputs = m_outDim * m_batches;
 
+  // DEBUG("NNUGen next: writing %d\n", nSamples);
+
   // copy inputs to circular buffer
-  for (int c(0); c < numInputs; ++c) {
-    m_inBuffer[c].put(in(UGenInputs::inputs + c), bufferSize());
+  if(isControlRateIn(UGenInputs::inputs)) {
+    for (int c(0); c < numInputs; ++c)
+      m_inBuffer[c].putRepeat(in0(UGenInputs::inputs + c), nSamples);
+  } else {
+    for (int c(0); c < numInputs; ++c)
+      m_inBuffer[c].put(in(UGenInputs::inputs + c), nSamples);
   }
 
   if (m_inBuffer[0].full()) {
+    // DEBUG("NNUGen inBuf full: sending to model\n");
 
     if (!m_useThread) {
 
@@ -215,6 +222,8 @@ void NNUGen::next(int nSamples) {
       for (int c(0); c < numInputs; ++c)
         m_inBuffer[c].get(&m_inModel[c * m_bufferSize], m_bufferSize);
       // TRANSFER MEMORY BETWEEN OUTPUT CIRCULAR BUFFER AND MODEL BUFFER
+      
+      // DEBUG("NNUGen reading model outputs\n");
       for (int c(0); c < numOutputs; ++c)
         m_outBuffer[c].put(&m_outModel[c * m_bufferSize], m_bufferSize);
       // SIGNAL PERFORM THREAD THAT DATA IS AVAILABLE
@@ -222,9 +231,11 @@ void NNUGen::next(int nSamples) {
     }
   }
 
+  // DEBUG("NNUGen inBuf size: %d\nNNUGen outBuf size: %d\nNNUGen outBuf reading %d\n",
+        // m_inBuffer->readable(), m_outBuffer->readable(), nSamples);
   // copy circular buf to out
   for (int c(0); c < numOutputs; ++c)
-    m_outBuffer[c].get(out(c), bufferSize());
+    m_outBuffer[c].get(out(c), nSamples);
 }
 
 NN::NN(
@@ -259,6 +270,7 @@ NNUGen::NNUGen():
   if (modelDesc)
     modelMethod = getModelMethod(modelDesc, in0(UGenInputs::methodIdx));
   if (modelMethod == nullptr) {
+    Print("ERROR: (scsynth) NNUGen no model method, clearing\n");
     set_calc_function<NNUGen, &NNUGen::clearOutputs>();
     return;
   }
@@ -327,14 +339,14 @@ NNUGen::NNUGen():
 }
 
 NNUGen::~NNUGen() {
-  DEBUG("NN: Dtor\n");
+  DEBUG("NNUGen: Dtor\n");
   if (m_sharedData && m_sharedData->m_compute_thread) {
     // don't wait for join, it would stall the dsp chain
     // thread frees resources when stopped
     m_sharedData->m_should_stop_perform_thread = true;
     /* m_compute_thread->join(); */
   } else {
-    DEBUG("NN: freeing manually\n");
+    DEBUG("NNUGen: freeing manually\n");
     if (m_sharedData) m_sharedData->~NN(); // this frees resources
     RTFree(mWorld, m_sharedData);
   }
@@ -343,23 +355,19 @@ NNUGen::~NNUGen() {
 // BUFFERS
 
 RingBuf* allocRingBuffer(World* world, size_t bufSize, size_t numChannels) {
-  RingBuf* ctrs = rtAlloc<RingBuf>(world, numChannels);
-  float* data = rtAlloc<float>(world, numChannels * bufSize);
-  if (ctrs == nullptr || data == nullptr) {
-    RTFree(world, ctrs); return nullptr;
-  };
+  size_t memSize = (sizeof(RingBuf) + sizeof(float) * bufSize) * numChannels;
+  RingBuf* ctrs = (RingBuf*) RTAlloc(world, memSize);
+  if (ctrs == nullptr) return nullptr;
+  float* data = reinterpret_cast<float*>(ctrs + numChannels);
   memset(data, 0, sizeof(float) * numChannels * bufSize);
   for (int c(0); c < numChannels; ++c) {
-    auto buf = data + (bufSize * c);
+    auto buf = data + (c * bufSize);
     new(ctrs + c) RingBuf(buf, bufSize);
-  };
-  /* Print("ctrs: %p\ndata: %p\n", ctrs, data); */
+  }
   return ctrs;
 }
 
 void freeRingBuffer(World* world, RingBuf* buf) {
-  if (buf == nullptr) return;
-  RTFree(world, buf[0].getBuffer()); // data
   RTFree(world, buf);
 }
 
