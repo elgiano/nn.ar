@@ -151,6 +151,14 @@ sc_add_server_plugin(
     "${TORCH_LIBRARIES}"
 )
 
+set(sc_test_files
+    plugins/NNModel/tests/TestNN.sc
+    plugins/NNModel/tests/nnar_test_model.ts
+    plugins/NNModel/tests/nnar_test_invalid_model.ts
+)
+
+install(FILES ${sc_test_files} DESTINATION ${dest_dir}/Tests)
+
 # End target NNModel
 ####################################################################################################
 
