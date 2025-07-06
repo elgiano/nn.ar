@@ -140,6 +140,7 @@ inline void set_thread_rt_prio(const NN* nn_instance) {
     double ns_to_host = static_cast<double>(timebase.denom) / timebase.numer;
     int computation = ns_to_host * (ns_per_block - 5000);
     int constraint = ns_to_host * ns_per_block;
+    auto m_debug = nn_instance->m_debug;
     DEBUG("NNUGen: setting thread rt prio (ns_to_host: %f; computation: %d, constraint: %d)\n",
           ns_to_host, computation, constraint);
     success = nova::thread_set_priority_rt(0, computation, constraint, true);
