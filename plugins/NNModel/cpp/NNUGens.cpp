@@ -320,7 +320,7 @@ NNUGen::NNUGen():
     ClearUnitOnMemFailed;
   }
   DEBUG("NNUGen: init sharedData\n");
-  int nsPerBlock = 1e9 * fullSampleDur() * fullBufferSize();
+  int nsPerBlock = 1e9 * mWorld->mFullRate.mSampleDur * fullBufferSize();
   m_sharedData = new(data) NN(mWorld, modelDesc, modelMethod, 
                         m_inModel, m_outModel, m_inBuffer, m_outBuffer,
                         m_bufferSize, m_debug, m_batches, nsPerBlock);
