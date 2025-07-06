@@ -1,0 +1,71 @@
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.name }}
+    strategy:
+      matrix:
+        include:
+          - name: 'Windows-x64'
+            os: windows-2022
+            torch: https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-2.3.0%2Bcpu.zip
+
+    env:
+      SC_PATH: ${{ github.workspace }}/supercollider
+      TORCH_PATH: ${{ github.workspace }}/libtorch
+      BUILD_PATH: ${{ github.workspace }}/build
+      INSTALL_PATH: ${{ github.workspace }}/build/Install
+      ARCHIVE_NAME: nn.ar-${{ matrix.name }}.zip
+
+    steps:
+    - name: Checkout nn.ar
+      uses: actions/checkout@v4
+
+    - name: Cache SuperCollider
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.SC_PATH }}
+        key: ${{ runner.os }}-sc-${{ hashFiles('.github/workflows/your-workflow.yml') }}
+        restore-keys: |
+          ${{ runner.os }}-sc-
+
+    - name: Checkout SuperCollider
+      uses: actions/checkout@v4
+      with:
+        repository: supercollider/supercollider
+        submodules: true
+        path: ${{ env.SC_PATH }}
+        ref: main
+
+    - name: Cache libtorch
+      id: cache-libtorch
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.TORCH_PATH }}
+        key: ${{ runner.os }}-libtorch-${{ matrix.torch }}
+
+    - name: Download libtorch (Windows)
+      run: |
+        $wc = New-Object System.Net.WebClient
+        $wc.DownloadFile('${{ matrix.torch }}', 'libtorch.zip')
+        7z x libtorch.zip
+
+      # Build
+    - name: Create Build Environment
+      shell: bash
+      run: cmake -E make_directory $BUILD_PATH
+
+    - name: Configure CMake
+      shell: bash
+      working-directory: ${{ env.BUILD_PATH }}
+      run: cmake .. -DCMAKE_BUILD_TYPE=Release -DSC_PATH="$SC_PATH" -DCMAKE_INSTALL_PREFIX="$INSTALL_PATH" -DTORCH_PATH="$TORCH_PATH"
+
+    - name: Build
+      shell: bash
+      working-directory: ${{ env.BUILD_PATH }}
+      env:
+        CMAKE_BUILD_PARALLEL_LEVEL: 4
+      run: cmake --build . --config Release --target install

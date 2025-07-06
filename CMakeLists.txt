@@ -44,6 +44,10 @@ message(STATUS "nn.ar version: ${NNAR_VERSION}")
 add_definitions(-DNNAR_VERSION="${NNAR_VERSION}")
 add_definitions(-DSC_VERSION="${SC_VERSION}")
 
+if(WIN32)
+    add_definitions(-DWIN32_LEAN_AND_MEAN -DNOMINMAX)
+endif()
+
 # set project here to avoid SCVersion.txt clobbering our version info
 project(${project_name})
 sc_do_initial_compiler_config() # do after setting project so compiler ID is available

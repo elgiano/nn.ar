@@ -1,12 +1,12 @@
 // NNUGens.cpp
-//
+// nova-tt needs to be included first to prevent conflicts with torch about win32 dllimports
+#include "nova-tt/thread_priority.hpp"
 #include "NNModel.hpp"
 #include "NNUGens.hpp"
 #include "NNModelCmd.hpp"
 #include "SC_Unit.h"
 #include "SC_InterfaceTable.h"
 #include "SC_PlugIn.hpp"
-#include "nova-tt/thread_priority.hpp"
 #include <chrono>
 
 InterfaceTable* ft;

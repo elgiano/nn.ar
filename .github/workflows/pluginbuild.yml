@@ -21,23 +21,18 @@ jobs:
             os: ubuntu-latest
             torch: https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.3.0%2Bcpu.zip
 
-          - name: 'Windows-x64'
-            os: windows-latest
-            torch: https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-2.2.0%2Bcpu.zip
-
-          - name: 'macOS-x64'
-            os: macos-12
-            torch: https://download.pytorch.org/libtorch/cpu/libtorch-macos-2.1.0.zip
-
-          - name: 'macOS-12-arm64'
-            arch: arm64
-            os: macos-12
-            torch: https://files.pythonhosted.org/packages/55/51/4bdee83e6fa9cca8e3a6cdf81a2695ede9d3fd7148e4fd4188dff142d7b0/torch-2.3.0-cp312-none-macosx_11_0_arm64.whl
-            
           - name: 'macOS-latest-arm64'
             arch: arm64
             os: macos-latest
             torch: https://files.pythonhosted.org/packages/55/51/4bdee83e6fa9cca8e3a6cdf81a2695ede9d3fd7148e4fd4188dff142d7b0/torch-2.3.0-cp312-none-macosx_11_0_arm64.whl
+
+          - name: 'macOS-13-x64'
+            os: macos-13
+            torch: https://download.pytorch.org/libtorch/cpu/libtorch-macos-x86_64-2.2.2.zip
+
+          - name: 'Windows-x64'
+            os: windows-latest
+            torch: https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-2.3.0%2Bcpu.zip
 
     env:
       SC_PATH: ${{ github.workspace }}/supercollider
@@ -49,7 +44,7 @@ jobs:
 
     steps:
     - name: Checkout nn.ar
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: Checkout SuperCollider
       uses: actions/checkout@v4
