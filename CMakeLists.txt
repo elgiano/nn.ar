@@ -108,7 +108,8 @@ else()
 	    "${TORCH_INSTALL_PREFIX}/lib/libtorch.dylib"
 	    "${TORCH_INSTALL_PREFIX}/lib/libtorch_cpu.dylib"
 	    "${TORCH_INSTALL_PREFIX}/lib/libc10.dylib"
-	    "${TORCH_INSTALL_PREFIX}/lib/libomp*"
+	    "${TORCH_INSTALL_PREFIX}/lib/libomp*" # mac-latest
+	    "${TORCH_INSTALL_PREFIX}/lib/libiomp*" # mac-x64
 	)
 	set(CMAKE_INSTALL_RPATH "@loader_path/ignore")
     elseif (MSVC)
