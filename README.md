@@ -225,10 +225,10 @@ If you don't have a copy of supercollider's source code, you can get one by:
 
 We have built nn.ar releases with the following versions of libtorch:
 
-- linux: [download v2.3.0 from pytorch.org](https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.3.0%2Bcpu.zip)  
-- macos arm64: [download v2.3.0 from PyPI](https://files.pythonhosted.org/packages/55/51/4bdee83e6fa9cca8e3a6cdf81a2695ede9d3fd7148e4fd4188dff142d7b0/torch-2.3.0-cp312-none-macosx_11_0_arm64.whl). You'll need to unzip the `.whl` file and take only the folder called "torch".
-- macos x64: [download v2.1.0 from pytorch.org](https://download.pytorch.org/libtorch/cpu/libtorch-macos-2.1.0.zip)
-- windows: [download v2.2.0 from pytorch.org](https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-2.2.0%2Bcpu.zip)
+- linux: [download v2.10.0 from pytorch.org](https://download.pytorch.org/libtorch/cpu/libtorch-shared-with-deps-2.10.0%2Bcpu.zip)
+- macos arm64: [download v2.10.0 from pytorch.org](https://download.pytorch.org/libtorch/cpu/libtorch-macos-arm64-2.10.0.zip).
+- macos x64: [download v2.2.2 from pytorch.org](https://download.pytorch.org/libtorch/cpu/libtorch-macos-x86_64-2.2.2.zip).
+- windows: [download v2.10.0 from pytorch.org](https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-2.10.0%2Bcpu.zip)
 
 Because of difficulties with torch CMake files and discrepancies in how different systems install libtorch, we don't recommend using system-wide installed libtorch. However, if you'd need to do it, you can enable finding and linking against system-installed torch with `-DSYSTEM_TORCH=ON`.
 

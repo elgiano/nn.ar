@@ -19,12 +19,12 @@ jobs:
 
           - name: 'Linux-x64'
             os: ubuntu-latest
-            torch: https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.3.0%2Bcpu.zip
+            torch: https://download.pytorch.org/libtorch/cpu/libtorch-shared-with-deps-2.10.0%2Bcpu.zip
 
           - name: 'macOS-latest-arm64'
             arch: arm64
             os: macos-latest
-            torch: https://files.pythonhosted.org/packages/55/51/4bdee83e6fa9cca8e3a6cdf81a2695ede9d3fd7148e4fd4188dff142d7b0/torch-2.3.0-cp312-none-macosx_11_0_arm64.whl
+            torch: https://download.pytorch.org/libtorch/cpu/libtorch-macos-arm64-2.10.0.zip
 
           - name: 'macOS-13-x64'
             os: macos-13
@@ -32,7 +32,7 @@ jobs:
 
           - name: 'Windows-x64'
             os: windows-latest
-            torch: https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-2.3.0%2Bcpu.zip
+            torch: https://download.pytorch.org/libtorch/cpu/libtorch-macos-arm64-2.10.0.zip
 
     env:
       SC_PATH: ${{ github.workspace }}/supercollider
