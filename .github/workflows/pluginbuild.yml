@@ -19,12 +19,12 @@ jobs:
 
           - name: 'Linux-x64'
             os: ubuntu-latest
-            torch: https://download.pytorch.org/libtorch/cpu/libtorch-shared-with-deps-2.10.0%2Bcpu.zip
+            torch: https://download.pytorch.org/libtorch/cpu/libtorch-shared-with-deps-2.5.1%2Bcpu.zip
 
           - name: 'macOS-latest-arm64'
             arch: arm64
             os: macos-latest
-            torch: https://download.pytorch.org/libtorch/cpu/libtorch-macos-arm64-2.10.0.zip
+            torch: https://download.pytorch.org/libtorch/cpu/libtorch-macos-arm64-2.5.1.zip
 
           - name: 'macOS-13-x64'
             os: macos-13
@@ -32,7 +32,7 @@ jobs:
 
           - name: 'Windows-x64'
             os: windows-latest
-            torch: https://download.pytorch.org/libtorch/cpu/libtorch-macos-arm64-2.10.0.zip
+            torch: https://download.pytorch.org/libtorch/cpu/libtorch-macos-arm64-2.5.1.zip
 
     env:
       SC_PATH: ${{ github.workspace }}/supercollider
@@ -56,17 +56,10 @@ jobs:
 
       # Get libtorch
     - name: Download libtorch (Unix)
-      if: runner.os != 'Windows' && matrix.arch != 'arm64'
+      if: runner.os != 'Windows'
       run: |
         wget ${{ matrix.torch }} -O libtorch.zip
         unzip libtorch.zip
-
-    - name: Download libtorch (MacOS arm64)
-      if: matrix.arch == 'arm64'
-      run: |
-        wget ${{ matrix.torch }} -O libtorch.whl
-        unzip libtorch.whl "torch/*"
-        mv torch libtorch
 
     - name: Download libtorch (Windows)
       if: runner.os == 'Windows'
