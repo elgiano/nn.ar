@@ -183,7 +183,8 @@ void model_perform_loop(NN *nn_instance, int warmup) {
 
 void NNUGen::next(int nSamples) {
 
-  if (!m_sharedData->m_loaded) {
+  bool active = in0(UGenInputs::active) > 0;
+  if (!m_sharedData->m_loaded || !active) {
     ClearUnitOutputs(this, nSamples);
     return;
   };

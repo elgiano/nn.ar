@@ -40,6 +40,10 @@ argument::attributes
 An array of pairs (attributeName, attributeValue). Attributes will be set
 everytime their attributeValue changes.
 
+argument::active
+Set to 0 to pause computation. Useful when a SynthDef instantiates multiple
+models but only uses one at a time.
+
 returns:: an Array of link::Classes/OutputProxy:: of size link::#-numOutputs::.
 
 method::name

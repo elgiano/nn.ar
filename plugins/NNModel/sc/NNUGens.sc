@@ -1,9 +1,9 @@
 NNUGen : MultiOutUGen {
 
-	// enum UGenInputs { modelIdx=0, methodIdx, bufSize, warmup, debug, nBatches, inputs };
+	// enum UGenInputs { modelIdx=0, methodIdx, bufSize, warmup, debug, nBatches, active, inputs };
 	// todo: clump batches
-	*ar { |modelIdx, methodIdx, bufferSize, numOutputs, warmup, debug, nBatches, inputs|
-		^this.new1('audio', modelIdx, methodIdx, bufferSize, warmup, debug, nBatches, *inputs)
+	*ar { |modelIdx, methodIdx, bufferSize, numOutputs, warmup, debug, nBatches, active, inputs|
+		^this.new1('audio', modelIdx, methodIdx, bufferSize, warmup, debug, nBatches, active, *inputs)
 			.initOutputs(numOutputs * nBatches, 'audio');
 	}
 
@@ -19,7 +19,7 @@ NNUGen : MultiOutUGen {
 }
 
 +NNModelMethod {
-	ar { |inputs, bufferSize=(-1), warmup=0, debug=0, attributes(#[])|
+	ar { |inputs, bufferSize=(-1), warmup=0, debug=0, attributes(#[]), active=1|
 		var attrParams, nBatches, outputs;
 		inputs = inputs.asArray;
 
@@ -54,7 +54,7 @@ NNUGen : MultiOutUGen {
 			attrParams.add(attrValue ?? 0);
 		};
 
-		outputs = NNUGen.ar(model.idx, idx, bufferSize, this.numOutputs, warmup, debug, nBatches, inputs ++ attrParams);
+		outputs = NNUGen.ar(model.idx, idx, bufferSize, this.numOutputs, warmup, debug, nBatches, active, inputs ++ attrParams);
 		// ugen outputs is not interlaced batches: clump
 		// e.g. [a0, a1, b0, b1] -> clump to [[a0,a1], [b0,b1]]
 		// note that if numOutputs is 1 [a0,b0] doesn't need to be clumped

@@ -29,6 +29,28 @@ an Array of inputs to the model. It must be of the correct size for the selected
 method, which can be seen by using link::Classes/NNModel#-describe:: or
 link::Classes/NNModel#-method::
 
+argument::warmup
+Number of warm-up passes: perform on empty inputs and discard their outputs,
+right after load and before starting to process actual inputs, because
+model optimizations happening in these first executions can cause stuttering (see
+link::Classes/NN#First-execution warmup::). Pass 0 (default) to disable warmup.
+
+argument::debug
+An integer to select what level of debugging info to print:
+table::
+## 0 || nothing
+## 1 || attribute values when they are set
+## 2 || all
+::
+
+argument::attributes
+An array of pairs (attributeName, attributeValue). Attributes will be set
+everytime their attributeValue changes.
+
+argument::active
+Set to 0 to pause computation. Useful when a SynthDef instantiates multiple
+models but only uses one at a time.
+
 examples::
 
 code::

@@ -108,7 +108,7 @@ public:
   NN* m_sharedData;
 
 private:
-  enum UGenInputs { modelIdx=0, methodIdx, bufSize, warmup, debug, n_batches, inputs };
+  enum UGenInputs { modelIdx=0, methodIdx, bufSize, warmup, debug, n_batches, active, inputs };
   void clearOutputs(int nSamples);
   bool allocBuffers();
   void updateAttributes();
